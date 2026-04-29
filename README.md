@@ -25,10 +25,7 @@ yarn
 |----------|---------|
 | `yarn` em subprojetos (com prompt) | `yarn install` (em **terminal interativo**) |
 | Todos os subprojetos, sem prompt | `yarn run install -- --all` ou `REPOS_SKIP_PROMPT=1 yarn install` |
-| Apenas alguns | `yarn run install -- -- nome-pasta outro-repo` |
 | `yarn dev` em paralelo (com prompt) | `yarn dev` |
-| Subir só alguns | `yarn dev -- core fronte-nd` |
-| CI / sem TTY | `REPOS_SKIP_PROMPT=1 yarn dev` |
 
 ### Atenção: `yarn add` nesta pasta
 
