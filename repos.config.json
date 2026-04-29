@@ -1,0 +1,14 @@
+{
+  "ignore": ["node_modules", ".git", ".cursor", ".doc", ".issues", "second"],
+  "nodeVersionByRepo": {
+    "uxvision-web": "22.12.0",
+    "auto-x-web": "22.12.0",
+    "core": "20.18.3",
+    "indiky-server": "20.18.3",
+    "dev-evaluator": "24.14.1",
+    "line-web": "16.20.2",
+    "line-server": "20.18.3",
+    "optimus-auth": "24.14.1",
+    "tesseractx": "24.14.1"
+  }
+}
