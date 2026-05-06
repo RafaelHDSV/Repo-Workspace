@@ -6,7 +6,7 @@ Ferramenta leve para quem mantém **vários repositórios** como pastas irmãs n
 - Suporta **NVM for Windows** (e variáveis `NVM_HOME` / `NVM_SYMLINK`) para fixar a versão do Node por pasta.
 - No **install** o prompt vem com tudo **selecionado**; no **dev**, com **nada selecionado** (você marca o que precisa).
 
-https://github.com/user-attachments/assets/86413d29-0db2-4094-a8e6-3d8c46a46397
+https://github.com/user-attachments/assets/46325e0e-664f-4812-bc0b-c12a655f60e6
 
 ## Requisitos
 
