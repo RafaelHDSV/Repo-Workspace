@@ -6,6 +6,8 @@ Ferramenta leve para quem mantém **vários repositórios** como pastas irmãs n
 - Suporta **NVM for Windows** (e variáveis `NVM_HOME` / `NVM_SYMLINK`) para fixar a versão do Node por pasta.
 - No **install** o prompt vem com tudo **selecionado**; no **dev**, com **nada selecionado** (você marca o que precisa).
 
+https://github.com/user-attachments/assets/ed602c2c-9bc4-4c93-a46d-d2b406b019b2
+
 ## Requisitos
 
 - [Node.js](https://nodejs.org/) 18 ou superior
