@@ -52,8 +52,8 @@ Equivalentes úteis em CI ou na documentação: `yarn repos:install` e `yarn rep
 
 ### Comportamento dos menus
 
-- **`yarn install`**: o multiselect abre com **todos** os repositórios **pré-selecionados** — você pode desmarcar os que não quiser. Espaço alterna a seleção; Enter confirma.
-- **`yarn dev`**: começa com **nada** selecionado — você marca só o que vai subir em paralelo. Repositórios **sem** script `dev` no `package.json` são ignorados, com aviso no terminal.
+- **`yarn install`** e **`yarn dev`**: o multiselect abre com **nada** selecionado — marque com Espaço os repositórios desejados; Enter confirma.
+- **`yarn dev`**: repositórios **sem** script `dev` no `package.json` são ignorados, com aviso no terminal.
 
 ### Sem prompt (CI, automação ou terminal sem TTY)
 

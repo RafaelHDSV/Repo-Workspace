@@ -126,7 +126,6 @@ function parseArgs(argv) {
 }
 
 async function pickRepos(candidates, mode) {
-  const preselect = mode === "install";
   const response = await prompts({
     type: "multiselect",
     name: "repos",
@@ -134,7 +133,7 @@ async function pickRepos(candidates, mode) {
     choices: candidates.map((name) => ({
       title: name,
       value: name,
-      selected: preselect,
+      selected: false,
     })),
     hint: "- Barra de espaço alterna. Enter confirma.",
     instructions: false,
