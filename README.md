@@ -1,6 +1,6 @@
 # repo-workspace
 
-Hub local em Yarn para **vários repositórios Git** organizados como **pastas irmãs** no mesmo diretório: um único lugar para rodar **`yarn`** (instalar dependências) e **`yarn dev`** (desenvolvimento em paralelo), com lista interativa ou nomes na linha de comando.
+Hub local em Yarn para **vários repositórios Git** organizados como **pastas irmãs** no mesmo diretório: um único lugar para rodar **`yarn`**, **`yarn dev`**, **`yarn tsc`**, **`yarn setup`** (instalar e depois subir o dev) e **`yarn switch`** (trocar de branch), com lista interativa ou nomes na linha de comando.
 
 https://github.com/user-attachments/assets/46325e0e-664f-4812-bc0b-c12a655f60e6
 
@@ -10,11 +10,14 @@ https://github.com/user-attachments/assets/46325e0e-664f-4812-bc0b-c12a655f60e6
 
 Se você mantém vários repositórios — por exemplo `api/`, `web/` e `worker/`, cada um com o próprio `package.json` — **no mesmo nível** de pasta, costuma enfrentar isto:
 
-- vários terminais e repetir `cd`, `yarn` e `yarn dev` em cada projeto;
+- vários terminais e repetir `cd`, `yarn`, `yarn dev` e `yarn tsc` em cada projeto;
 - perder de vista em qual pasta faltam dependências instaladas;
-- misturar versões do Node entre projetos.
+- misturar versões do Node entre projetos;
+- trocar a mesma branch em vários clones um a um.
 
-Este repositório é a **pasta central** (*hub*): aqui ficam só a ferramenta (`package.json` deste projeto, `scripts/` e `repos.config.json`). Os outros produtos continuam sendo **repositórios comuns** em subpastas. O hub **não substitui** o Git de cada um — apenas orquestra `yarn` e `yarn dev` quando você dispara os comandos a partir da raiz do hub.
+Este repositório é a **pasta central** (*hub*): aqui ficam a ferramenta (`package.json`, `scripts/` e `repos.config.json`). Os outros produtos continuam sendo **repositórios comuns** em subpastas. O hub **não substitui** o Git de cada um — apenas orquestra os comandos a partir da raiz do hub.
+
+A raiz operacional é **o diretório onde estes arquivos estão**. Se você copia só os essenciais para outra pasta (por exemplo `repos/`), os comandos passam a atuar nessa pasta.
 
 ---
 
@@ -22,62 +25,83 @@ Este repositório é a **pasta central** (*hub*): aqui ficam só a ferramenta (`
 
 1. **A raiz do hub** é o diretório em que estão `package.json` (deste projeto), `repos.config.json` e `scripts/repo-workspace.mjs`.
 2. Cada outro projeto é uma **subpasta direta** dessa raiz (irmã de `scripts/`, não dentro de `scripts/`).
-3. Só entram na lista pastas que **tenham `package.json` na própria raiz** da subpasta.
+3. Para `install` / `dev` / `tsc` / `setup`, só entram pastas que **tenham `package.json` na própria raiz** da subpasta.
+4. Para `switch`, entram pastas que **tenham `.git`**.
 
-Se você clonou este repositório só como **modelo**, copie esses arquivos para a pasta onde já estão os outros clones (por exemplo `C:\Users\...\meus-repos\` ou `~/repos/`), mantendo a mesma hierarquia: um `package.json` na raiz do hub e pastas como `meu-servico-a/` e `meu-app-b/` ao lado.
+Se você clonou este repositório só como **modelo**, copie esses arquivos para a pasta onde já estão os outros clones (por exemplo `C:\Users\...\meus-repos\` ou `~/repos/`), mantendo a mesma hierarquia.
 
 ---
 
 ## Início rápido
 
-1. Organize seus repositórios como subpastas diretas da raiz do hub (cada uma com `package.json`).
-2. Na **raiz do hub**, instale as dependências do próprio hub com `yarn`. Na primeira vez, use um terminal **interativo** para o fluxo de `install` nos sub-repositórios (detalhes na seção [Uso no dia a dia](#uso-no-dia-a-dia)).
-3. Opcional: crie ou edite `repos.config.json` para ignorar pastas ou fixar a versão do Node por pasta ([Configuração](#configuração-reposconfigjson)).
-4. No dia a dia: na raiz do hub, rode `yarn install` ou `yarn dev` e escolha os projetos no menu — ou passe os nomes na CLI.
+1. Organize seus repositórios como subpastas diretas da raiz do hub.
+2. Na **raiz do hub**, instale as dependências do próprio hub com `yarn`. Na primeira vez, use um terminal **interativo** para o fluxo de `install` nos sub-repositórios.
+3. Opcional: edite `repos.config.json` para ignorar pastas ou fixar a versão do Node por pasta.
+4. No dia a dia: `yarn install`, `yarn dev`, `yarn tsc`, `yarn setup` ou `yarn switch <branch>`.
 
 ---
 
 ## Uso no dia a dia
 
-Todos os comandos abaixo são executados na **raiz do hub** (a pasta do `package.json` deste projeto).
+Todos os comandos abaixo são executados na **raiz do hub**.
 
 | Objetivo | Comando |
 |----------|---------|
-| Instalar dependências (`yarn`) nos sub-repositórios **com menu** (multiselect) | `yarn install` — terminal **interativo** (TTY) |
-| Instalar em **todos** os sub-repositórios detectados, **sem** menu | `yarn run install -- --all` |
+| Instalar dependências (`yarn`) **com menu** | `yarn install` — terminal **interativo** (TTY) |
+| Instalar em **todos**, sem menu | `yarn run install -- --all` |
 | Subir `yarn dev` em paralelo **com menu** | `yarn dev` |
-| `install` ou `dev` com nomes explícitos | `yarn run install -- -- api web` ou `yarn dev -- api web` |
+| Rodar `yarn tsc` em paralelo **com menu** | `yarn tsc` |
+| Instalar e depois subir `dev` (mesma seleção) | `yarn setup` |
+| Trocar de branch nos clones git | `yarn switch <branch>` |
+| Nomes explícitos (qualquer modo yarn) | `yarn run install -- -- api web` ou `yarn tsc -- api web` |
+| Switch sem menu | `yarn switch main -- core api` ou `yarn switch production -- --all` |
 
-Equivalentes úteis em CI ou na documentação: `yarn repos:install` e `yarn repos:dev`.
+Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:tsc`, `yarn repos:setup`.
 
 ### Comportamento dos menus
 
-- **`yarn install`** e **`yarn dev`**: o multiselect abre com **nada** selecionado — marque com Espaço os repositórios desejados; Enter confirma.
-- **`yarn dev`**: repositórios **sem** script `dev` no `package.json` são ignorados, com aviso no terminal.
+- O multiselect abre com **nada** selecionado — marque com Espaço; Enter confirma.
+- **`yarn dev`** e **`yarn setup`** (etapa de dev): repositórios **sem** script `dev` são ignorados, com aviso.
+- **`yarn tsc`**: repositórios **sem** script `tsc` são ignorados, com aviso.
+- **`yarn setup`**: seleciona **uma vez**, roda `yarn` sequencialmente em todos os selecionados e, só após sucesso, inicia `yarn dev` em paralelo nos que tiverem script `dev`.
+- **`yarn switch`**: o menu mostra a branch atual de cada clone ao lado do nome.
 
 ### Sem prompt (CI, automação ou terminal sem TTY)
 
-- **Todos os repositórios**: `yarn run install -- --all`, ou na shell Unix: `REPOS_SKIP_PROMPT=1 yarn install` (Git Bash / macOS / Linux). No **PowerShell**: `$env:REPOS_SKIP_PROMPT='1'; yarn install`.
-- **Lista fixa**: `yarn run install -- -- nome-do-repo outro-repo` (o `--` separa flags do script dos nomes das pastas).
+- **Todos**: `yarn run install -- --all`, ou `REPOS_SKIP_PROMPT=1 yarn install` (Unix/Git Bash). No **PowerShell**: `$env:REPOS_SKIP_PROMPT='1'; yarn install`.
+- **Lista fixa**: `yarn run install -- -- nome-do-repo outro-repo`.
 
-Sem TTY e **sem** `--all`, **sem** nomes após `--` e **sem** `REPOS_SKIP_PROMPT=1`, o `install` nos sub-repositórios **não roda** — evita travar builds em ambiente sem usuário para responder ao menu.
+Sem TTY e **sem** `--all`, **sem** nomes e **sem** `REPOS_SKIP_PROMPT=1`, o `install` nos sub-repositórios **não roda** — evita travar builds após `yarn add` no hub.
 
-### Atenção: `yarn add` nesta raiz
+### `yarn switch` — detalhes
 
-Depois de `yarn add` **no hub**, o ciclo de instalação pode rodar **sem TTY** e o script **pula** a instalação nos sub-repositórios (comportamento intencional). Para instalar mesmo assim em todos: `yarn run install -- --all`.
+Para cada repositório:
+
+1. Valida pasta e `.git`
+2. Working tree sujo → **pula** e segue nos demais
+3. Branch local → `git switch <branch>`
+4. Só `origin/<branch>` → `git switch --track origin/<branch>`
+5. Caso contrário → erro nesse item
+
+**Não** faz `fetch`, `pull`, stash nem force checkout.
+
+Códigos de saída:
+
+- `0` se todos tiveram sucesso
+- `1` se houve erro **ou** pulo (working tree sujo conta como falha parcial)
 
 ---
 
 ## Configuração: `repos.config.json`
 
-Arquivo **opcional** na raiz do hub. Se estiver ausente ou com JSON inválido, entram **valores padrão** (`ignore` extra vazio; `nodeVersionByRepo` vazio).
+Arquivo **opcional** na raiz do hub. Se estiver ausente ou inválido, entram valores padrão.
 
 | Campo | Função |
 |--------|--------|
-| `ignore` | Nomes de pastas na **raiz do hub** que **não** entram na lista. `node_modules` e `.git` são sempre ignorados pelo script, mesmo que você não liste aqui. |
-| `nodeVersionByRepo` | Objeto **nome da pasta** → **versão do Node** (ex.: `"20.18.3"`). Só altera o `PATH` daquele processo quando `NVM_HOME` ou `NVM_SYMLINK` (NVM for Windows) apontam para a instalação do NVM e a versão está instalada. Pastas omitidas usam o Node que já estiver no `PATH`. |
+| `ignore` | Nomes de pastas na raiz do hub que **não** entram na lista. `node_modules`, `.git`, `scripts` e `tests` são sempre ignorados. |
+| `nodeVersionByRepo` | Objeto **nome da pasta** → **versão do Node**. Só altera o `PATH` quando `NVM_HOME` ou `NVM_SYMLINK` apontam para o NVM e a versão está instalada. |
 
-Exemplo mínimo:
+Exemplo:
 
 ```json
 {
@@ -89,32 +113,42 @@ Exemplo mínimo:
 }
 ```
 
-O arquivo precisa ser **JSON estrito** (sem comentários `//`). Ajuste as chaves aos **nomes reais das pastas** no disco.
+JSON estrito (sem comentários `//`).
 
 ---
 
 ## Requisitos
 
-- [Node.js](https://nodejs.org/) 18 ou superior na máquina em que você roda o hub
+- [Node.js](https://nodejs.org/) 18 ou superior
 - [Yarn Classic](https://classic.yarnpkg.com/) (v1) nos repositórios filhos
-- Opcional: [NVM for Windows](https://github.com/coreybutler/nvm-windows) se você usar `nodeVersionByRepo`
+- Opcional: [NVM for Windows](https://github.com/coreybutler/nvm-windows) se usar `nodeVersionByRepo`
 
 ---
 
 ## Estrutura de pastas
 
 ```text
-pasta-do-hub/              ← clone deste projeto + seus outros clones ao lado
-  package.json             ← dependências do hub (concurrently, prompts)
+pasta-do-hub/              ← clone deste projeto ou cópia dos essenciais
+  package.json
   yarn.lock
   repos.config.json        ← opcional
   scripts/
     repo-workspace.mjs
-  api/                     ← outro repositório (package.json na raiz de api/)
+    lib/
+  tests/
+  api/                     ← outro repositório
   web/                     ← outro repositório
 ```
 
-O script **não** busca `package.json` de forma recursiva dentro de `api/src` — só considera **subpastas diretas** do hub que tenham `package.json` na raiz da subpasta.
+O script **não** busca `package.json` de forma recursiva — só **subpastas diretas** do hub.
+
+---
+
+## Testes
+
+```bash
+yarn test
+```
 
 ---
 
@@ -122,8 +156,10 @@ O script **não** busca `package.json` de forma recursiva dentro de `api/src` �
 
 | Situação | O que fazer |
 |----------|-------------|
-| Primeira vez, instalar tudo | `yarn` ou `yarn install` no hub (interativo) ou `yarn run install -- --all` |
-| Desenvolvimento | `yarn dev` e escolher no menu |
-| Automatizar / CI | `yarn run install -- --all` ou `yarn run install -- -- repo1 repo2` |
-| Pasta não aparece no menu | Confira `package.json` na raiz da subpasta e o campo `ignore` em `repos.config.json` |
-| Node incorreto em um repositório | Defina a entrada em `nodeVersionByRepo` e use o NVM no Windows com a versão instalada |
+| Primeira vez, instalar tudo | `yarn install` (interativo) ou `yarn run install -- --all` |
+| Desenvolvimento | `yarn dev` ou `yarn setup` |
+| Checar TypeScript em vários repos | `yarn tsc` |
+| Trocar branch em vários clones | `yarn switch main` |
+| Automatizar / CI | `--all`, nomes após `--` ou `REPOS_SKIP_PROMPT=1` |
+| Pasta não aparece no menu | Confira `package.json` / `.git` e o campo `ignore` |
+| Node incorreto em um repositório | Defina `nodeVersionByRepo` e use NVM com a versão instalada |

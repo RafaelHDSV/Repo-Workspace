@@ -1,17 +1,24 @@
 {
   "name": "repo-workspace",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Ferramenta local para instalar e rodar scripts de múltiplos repositórios irmãos no mesmo diretório, com seleção interativa ou por CLI e suporte a NVM (Windows e Unix).",
+  "description": "Centralizador local para yarn, yarn dev, yarn tsc, setup e troca de branch em múltiplos repositórios irmãos, com seleção interativa ou por CLI e suporte a NVM (Windows e Unix).",
   "license": "MIT",
+  "type": "module",
   "engines": {
     "node": ">=18.0.0"
   },
   "scripts": {
     "install": "node scripts/repo-workspace.mjs install",
     "dev": "node scripts/repo-workspace.mjs dev",
+    "tsc": "node scripts/repo-workspace.mjs tsc",
+    "setup": "node scripts/repo-workspace.mjs setup",
+    "switch": "node scripts/repo-workspace.mjs switch",
     "repos:install": "node scripts/repo-workspace.mjs install",
-    "repos:dev": "node scripts/repo-workspace.mjs dev"
+    "repos:dev": "node scripts/repo-workspace.mjs dev",
+    "repos:tsc": "node scripts/repo-workspace.mjs tsc",
+    "repos:setup": "node scripts/repo-workspace.mjs setup",
+    "test": "node --test tests/args.test.mjs tests/config.test.mjs tests/git.test.mjs tests/smoke.test.mjs"
   },
   "dependencies": {
     "concurrently": "^9.2.1",
