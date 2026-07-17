@@ -6,11 +6,19 @@ const BUILTIN_IGNORE = ["node_modules", ".git", "scripts", "tests"];
 
 /**
  * @param {string} [root]
- * @returns {{ ignore: string[], nodeVersionByRepo: Record<string, string> }}
+ * @returns {{
+ *   ignore: string[],
+ *   nodeVersionByRepo: Record<string, string>,
+ *   testCommandByRepo: Record<string, string>
+ * }}
  */
 export function loadConfig(root = ROOT) {
   const configPath = path.join(root, "repos.config.json");
-  const defaults = { ignore: [...BUILTIN_IGNORE], nodeVersionByRepo: {} };
+  const defaults = {
+    ignore: [...BUILTIN_IGNORE],
+    nodeVersionByRepo: {},
+    testCommandByRepo: {},
+  };
   if (!fs.existsSync(configPath)) return defaults;
   try {
     const raw = fs.readFileSync(configPath, "utf8");
@@ -18,6 +26,7 @@ export function loadConfig(root = ROOT) {
     return {
       ignore: [...defaults.ignore, ...(parsed.ignore || [])],
       nodeVersionByRepo: parsed.nodeVersionByRepo || {},
+      testCommandByRepo: parsed.testCommandByRepo || {},
     };
   } catch {
     return defaults;

@@ -4,7 +4,7 @@
  * Uso:
  *   yarn install / yarn run install -- --all / yarn run install -- -- api web
  *   yarn dev [-- api]
- *   yarn tsc [-- api]
+ *   yarn test [-- api]
  *   yarn setup [-- api]     → yarn sequencial + yarn dev paralelo (mesma seleção)
  *   yarn switch <branch> [-- --all | -- repo1 repo2]
  *   REPOS_SKIP_PROMPT=1 yarn dev
@@ -24,8 +24,13 @@ import {
   discoverGitRepos,
 } from "./lib/git.mjs";
 import { ROOT } from "./lib/root.mjs";
-import { runYarnInstallSequential, runYarnParallel } from "./lib/run.mjs";
+import {
+  runCommandsParallel,
+  runYarnInstallSequential,
+  runYarnParallel,
+} from "./lib/run.mjs";
 import { resolveSelection } from "./lib/select.mjs";
+import { resolveTestCommands } from "./lib/test.mjs";
 import path from "node:path";
 
 async function selectPackageRepos(parsed, config, modeLabel) {
@@ -83,6 +88,54 @@ async function runParallelScript(parsed, config, scriptName) {
   }
 
   await runYarnParallel(withScript, scriptName, config, ROOT);
+}
+
+async function runTests(parsed, config) {
+  const discovered = discoverPackageRepos(config, ROOT);
+
+  let selected;
+  if (parsed.cliRepos.length > 0) {
+    const unknown = parsed.cliRepos.filter(
+      (repo) => !discovered.includes(repo),
+    );
+    if (unknown.length) {
+      console.error(`Pastas desconhecidas ou ignoradas: ${unknown.join(", ")}`);
+      console.error(`Disponíveis: ${discovered.join(", ")}`);
+      process.exit(1);
+    }
+    selected = parsed.cliRepos;
+  } else {
+    const allResolved = resolveTestCommands(discovered, config, ROOT);
+    if (allResolved.commands.length === 0) {
+      console.error("Nenhum repositório com suíte de testes foi encontrado.");
+      process.exit(1);
+    }
+    const commandByRepo = new Map(
+      allResolved.commands.map(({ repo, command }) => [repo, command]),
+    );
+    const runnableRepos = allResolved.commands.map(({ repo }) => repo);
+    selected = await resolveSelection({
+      discovered: runnableRepos,
+      all: parsed.all,
+      cliRepos: [],
+      mode: "test",
+      message: "Quais repositórios testar?",
+      titleFor: (repo) => `${repo}  (${commandByRepo.get(repo)})`,
+    });
+  }
+
+  if (selected === null) return;
+
+  const { commands, skipped } = resolveTestCommands(selected, config, ROOT);
+  if (skipped.length) {
+    console.error(`Sem suíte de testes (ignorados): ${skipped.join(", ")}`);
+  }
+  if (commands.length === 0) {
+    console.error("Nenhum repo selecionado possui suíte de testes.");
+    process.exit(1);
+  }
+
+  await runCommandsParallel(commands, config, ROOT, { CI: "1" });
 }
 
 async function runSetup(parsed, config) {
@@ -160,8 +213,8 @@ async function main() {
     case "dev":
       await runParallelScript(parsed, config, "dev");
       break;
-    case "tsc":
-      await runParallelScript(parsed, config, "tsc");
+    case "test":
+      await runTests(parsed, config);
       break;
     case "setup":
       await runSetup(parsed, config);

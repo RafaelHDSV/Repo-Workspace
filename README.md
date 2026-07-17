@@ -1,6 +1,6 @@
 # repo-workspace
 
-Hub local em Yarn para **vários repositórios Git** organizados como **pastas irmãs** no mesmo diretório: um único lugar para rodar **`yarn`**, **`yarn dev`**, **`yarn tsc`**, **`yarn setup`** (instalar e depois subir o dev) e **`yarn switch`** (trocar de branch), com lista interativa ou nomes na linha de comando.
+Hub local em Yarn para **vários repositórios Git** organizados como **pastas irmãs** no mesmo diretório: um único lugar para rodar **`yarn`**, **`yarn dev`**, **`yarn test`**, **`yarn setup`** (instalar e depois subir o dev) e **`yarn switch`** (trocar de branch), com lista interativa ou nomes na linha de comando.
 
 https://github.com/user-attachments/assets/46325e0e-664f-4812-bc0b-c12a655f60e6
 
@@ -10,7 +10,7 @@ https://github.com/user-attachments/assets/46325e0e-664f-4812-bc0b-c12a655f60e6
 
 Se você mantém vários repositórios — por exemplo `api/`, `web/` e `worker/`, cada um com o próprio `package.json` — **no mesmo nível** de pasta, costuma enfrentar isto:
 
-- vários terminais e repetir `cd`, `yarn`, `yarn dev` e `yarn tsc` em cada projeto;
+- vários terminais e repetir `cd`, `yarn`, `yarn dev` e testes em cada projeto;
 - perder de vista em qual pasta faltam dependências instaladas;
 - misturar versões do Node entre projetos;
 - trocar a mesma branch em vários clones um a um.
@@ -25,7 +25,7 @@ A raiz operacional é **o diretório onde estes arquivos estão**. Se você copi
 
 1. **A raiz do hub** é o diretório em que estão `package.json` (deste projeto), `repos.config.json` e `scripts/repo-workspace.mjs`.
 2. Cada outro projeto é uma **subpasta direta** dessa raiz (irmã de `scripts/`, não dentro de `scripts/`).
-3. Para `install` / `dev` / `tsc` / `setup`, só entram pastas que **tenham `package.json` na própria raiz** da subpasta.
+3. Para `install` / `dev` / `test` / `setup`, só entram pastas que **tenham `package.json` na própria raiz** da subpasta.
 4. Para `switch`, entram pastas que **tenham `.git`**.
 
 Se você clonou este repositório só como **modelo**, copie esses arquivos para a pasta onde já estão os outros clones (por exemplo `C:\Users\...\meus-repos\` ou `~/repos/`), mantendo a mesma hierarquia.
@@ -37,7 +37,7 @@ Se você clonou este repositório só como **modelo**, copie esses arquivos para
 1. Organize seus repositórios como subpastas diretas da raiz do hub.
 2. Na **raiz do hub**, instale as dependências do próprio hub com `yarn`. Na primeira vez, use um terminal **interativo** para o fluxo de `install` nos sub-repositórios.
 3. Opcional: edite `repos.config.json` para ignorar pastas ou fixar a versão do Node por pasta.
-4. No dia a dia: `yarn install`, `yarn dev`, `yarn tsc`, `yarn setup` ou `yarn switch <branch>`.
+4. No dia a dia: `yarn install`, `yarn dev`, `yarn test`, `yarn setup` ou `yarn switch <branch>`.
 
 ---
 
@@ -50,21 +50,33 @@ Todos os comandos abaixo são executados na **raiz do hub**.
 | Instalar dependências (`yarn`) **com menu** | `yarn install` — terminal **interativo** (TTY) |
 | Instalar em **todos**, sem menu | `yarn run install -- --all` |
 | Subir `yarn dev` em paralelo **com menu** | `yarn dev` |
-| Rodar `yarn tsc` em paralelo **com menu** | `yarn tsc` |
+| Rodar as suítes canônicas em paralelo **com menu** | `yarn test` |
 | Instalar e depois subir `dev` (mesma seleção) | `yarn setup` |
 | Trocar de branch nos clones git | `yarn switch <branch>` |
-| Nomes explícitos (qualquer modo yarn) | `yarn run install -- -- api web` ou `yarn tsc -- api web` |
+| Nomes explícitos (qualquer modo yarn) | `yarn run install -- -- api web` ou `yarn test -- api web` |
 | Switch sem menu | `yarn switch main -- core api` ou `yarn switch production -- --all` |
 
-Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:tsc`, `yarn repos:setup`.
+Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:test`, `yarn repos:setup`.
 
 ### Comportamento dos menus
 
 - O multiselect abre com **nada** selecionado — marque com Espaço; Enter confirma.
 - **`yarn dev`** e **`yarn setup`** (etapa de dev): repositórios **sem** script `dev` são ignorados, com aviso.
-- **`yarn tsc`**: repositórios **sem** script `tsc` são ignorados, com aviso.
+- **`yarn test`**: mostra somente repositórios com suíte detectada e o comando não interativo que será executado.
 - **`yarn setup`**: seleciona **uma vez**, roda `yarn` sequencialmente em todos os selecionados e, só após sucesso, inicia `yarn dev` em paralelo nos que tiverem script `dev`.
 - **`yarn switch`**: o menu mostra a branch atual de cada clone ao lado do nome.
+
+### Como `yarn test` resolve cada suíte
+
+O agregador analisa `scripts.test` de cada `package.json`:
+
+- Vitest sem `run`: executa `yarn test --run`;
+- CRA, React Scripts ou Craco: executa `yarn test --watchAll=false`;
+- demais suítes canônicas, como Jest ou Vitest já configurado com `run`: executa `yarn test`.
+
+Todos os processos recebem `CI=1`, usam a versão definida em `nodeVersionByRepo` e rodam em paralelo com prefixo por repositório. Watch, UI, coverage, integrações externas e E2E não são adicionados automaticamente, evitando processos persistentes e execuções duplicadas.
+
+Para uma exceção, configure `testCommandByRepo`. O override tem prioridade sobre a análise automática.
 
 ### Sem prompt (CI, automação ou terminal sem TTY)
 
@@ -100,6 +112,7 @@ Arquivo **opcional** na raiz do hub. Se estiver ausente ou inválido, entram val
 |--------|--------|
 | `ignore` | Nomes de pastas na raiz do hub que **não** entram na lista. `node_modules`, `.git`, `scripts` e `tests` são sempre ignorados. |
 | `nodeVersionByRepo` | Objeto **nome da pasta** → **versão do Node**. Só altera o `PATH` quando `NVM_HOME` ou `NVM_SYMLINK` apontam para o NVM e a versão está instalada. |
+| `testCommandByRepo` | Objeto **nome da pasta** → **comando canônico de teste** para sobrescrever ou habilitar a detecção automática. |
 
 Exemplo:
 
@@ -109,6 +122,9 @@ Exemplo:
   "nodeVersionByRepo": {
     "api": "20.10.0",
     "web": "22.12.0"
+  },
+  "testCommandByRepo": {
+    "legacy": "yarn test:ci"
   }
 }
 ```
@@ -146,8 +162,18 @@ O script **não** busca `package.json` de forma recursiva — só **subpastas di
 
 ## Testes
 
+Executar suítes dos repositórios:
+
 ```bash
 yarn test
+yarn test -- api web
+yarn run test -- --all
+```
+
+Executar somente os testes internos do hub:
+
+```bash
+yarn test:self
 ```
 
 ---
@@ -158,7 +184,7 @@ yarn test
 |----------|-------------|
 | Primeira vez, instalar tudo | `yarn install` (interativo) ou `yarn run install -- --all` |
 | Desenvolvimento | `yarn dev` ou `yarn setup` |
-| Checar TypeScript em vários repos | `yarn tsc` |
+| Testar vários repositórios | `yarn test` |
 | Trocar branch em vários clones | `yarn switch main` |
 | Automatizar / CI | `--all`, nomes após `--` ou `REPOS_SKIP_PROMPT=1` |
 | Pasta não aparece no menu | Confira `package.json` / `.git` e o campo `ignore` |

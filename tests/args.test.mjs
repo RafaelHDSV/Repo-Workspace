@@ -29,10 +29,10 @@ describe("parseArgs", () => {
     assert.deepEqual(parsed.cliRepos, ["core"]);
   });
 
-  it("reconhece tsc e setup", () => {
+  it("reconhece test e setup", () => {
     assert.equal(
-      parseArgs(["node", "x", "tsc", "api"]).mode,
-      "tsc",
+      parseArgs(["node", "x", "test", "api"]).mode,
+      "test",
     );
     assert.equal(
       parseArgs(["node", "x", "setup"]).mode,
@@ -84,6 +84,13 @@ describe("parseArgs", () => {
   it("rejeita modo desconhecido", () => {
     assert.throws(
       () => parseArgs(["node", "x", "build"]),
+      /Modo desconhecido/,
+    );
+  });
+
+  it("rejeita o modo tsc removido", () => {
+    assert.throws(
+      () => parseArgs(["node", "x", "tsc"]),
       /Modo desconhecido/,
     );
   });

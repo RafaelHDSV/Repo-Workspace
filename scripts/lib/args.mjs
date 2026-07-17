@@ -1,11 +1,11 @@
-const YARN_MODES = new Set(["install", "dev", "tsc", "setup"]);
+const YARN_MODES = new Set(["install", "dev", "test", "setup"]);
 const ALL_MODES = new Set([...YARN_MODES, "switch"]);
 
 /**
  * @param {string[]} argv process.argv
  * @returns
  *   | { help: true, mode?: string }
- *   | { mode: 'install'|'dev'|'tsc'|'setup', all: boolean, cliRepos: string[] }
+ *   | { mode: 'install'|'dev'|'test'|'setup', all: boolean, cliRepos: string[] }
  *   | { mode: 'switch', branch: string, all: boolean, cliRepos: string[] }
  */
 export function parseArgs(argv) {
@@ -18,7 +18,7 @@ export function parseArgs(argv) {
 
   if (!ALL_MODES.has(mode)) {
     throw new Error(
-      `Modo desconhecido: ${mode}. Use install, dev, tsc, setup ou switch.`,
+      `Modo desconhecido: ${mode}. Use install, dev, test, setup ou switch.`,
     );
   }
 
@@ -123,7 +123,7 @@ export function printHelp() {
   yarn run install -- --all
   yarn run install -- -- api web
   yarn dev                  → yarn dev em paralelo
-  yarn tsc                  → yarn tsc em paralelo
+  yarn test                 → suítes canônicas em paralelo
   yarn setup                → yarn e depois yarn dev (mesma seleção)
   yarn switch <branch>      → troca de branch nos clones git
   yarn switch <branch> -- --all

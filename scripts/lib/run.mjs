@@ -50,26 +50,60 @@ export function runYarnInstallSequential(repos, config, root = ROOT) {
 }
 
 /**
- * @param {string[]} repos
- * @param {string} yarnScript ex.: "dev" | "tsc"
+ * @param {Array<{ repo: string, command: string }>} entries
  * @param {{ nodeVersionByRepo: Record<string, string> }} config
  * @param {string} [root]
- * @returns {Promise<void>}
+ * @param {NodeJS.ProcessEnv} [baseEnv]
+ * @param {NodeJS.ProcessEnv} [extraEnv]
+ * @returns {Array<{
+ *   command: string,
+ *   name: string,
+ *   cwd: string,
+ *   env: NodeJS.ProcessEnv
+ * }>}
  */
-export async function runYarnParallel(repos, yarnScript, config, root = ROOT) {
-  const commands = repos.map((repo) => {
+export function buildParallelCommands(
+  entries,
+  config,
+  root = ROOT,
+  baseEnv = process.env,
+  extraEnv = {},
+) {
+  return entries.map(({ repo, command }) => {
     const cwd = path.join(root, repo);
     const version = config.nodeVersionByRepo[repo];
-    const env = prependNodeToPath(version, process.env);
+    const env = prependNodeToPath(version, { ...baseEnv, ...extraEnv });
     return {
-      command: `yarn ${yarnScript}`,
+      command,
       name: repo,
       cwd,
       env,
     };
   });
+}
 
-  const prefixColors = repos.map((_, i) => COLORS[i % COLORS.length]);
+/**
+ * @param {Array<{ repo: string, command: string }>} entries
+ * @param {{ nodeVersionByRepo: Record<string, string> }} config
+ * @param {string} [root]
+ * @param {NodeJS.ProcessEnv} [extraEnv]
+ * @returns {Promise<void>}
+ */
+export async function runCommandsParallel(
+  entries,
+  config,
+  root = ROOT,
+  extraEnv = {},
+) {
+  const commands = buildParallelCommands(
+    entries,
+    config,
+    root,
+    process.env,
+    extraEnv,
+  );
+
+  const prefixColors = entries.map((_, i) => COLORS[i % COLORS.length]);
 
   const { result } = concurrently(commands, {
     prefix: "name",
@@ -77,4 +111,19 @@ export async function runYarnParallel(repos, yarnScript, config, root = ROOT) {
     restartTries: 0,
   });
   await result;
+}
+
+/**
+ * @param {string[]} repos
+ * @param {string} yarnScript ex.: "dev"
+ * @param {{ nodeVersionByRepo: Record<string, string> }} config
+ * @param {string} [root]
+ * @returns {Promise<void>}
+ */
+export async function runYarnParallel(repos, yarnScript, config, root = ROOT) {
+  const entries = repos.map((repo) => ({
+    repo,
+    command: `yarn ${yarnScript}`,
+  }));
+  await runCommandsParallel(entries, config, root);
 }

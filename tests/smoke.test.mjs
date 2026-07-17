@@ -21,7 +21,8 @@ describe("smoke CLI", () => {
     assert.equal(r.status, 0);
     assert.match(r.stdout, /yarn setup/);
     assert.match(r.stdout, /yarn switch/);
-    assert.match(r.stdout, /yarn tsc/);
+    assert.match(r.stdout, /yarn test/);
+    assert.doesNotMatch(r.stdout, /yarn tsc/);
   });
 
   it("falha com modo inválido e mostra ajuda", () => {

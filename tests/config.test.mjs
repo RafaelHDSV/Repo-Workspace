@@ -21,6 +21,7 @@ describe("config e descoberta", () => {
       JSON.stringify({
         ignore: ["skip-me"],
         nodeVersionByRepo: { api: "20.18.3" },
+        testCommandByRepo: { api: "yarn test:ci" },
       }),
     );
 
@@ -55,6 +56,7 @@ describe("config e descoberta", () => {
     assert.ok(config.ignore.includes("skip-me"));
     assert.ok(config.ignore.includes("node_modules"));
     assert.equal(config.nodeVersionByRepo.api, "20.18.3");
+    assert.equal(config.testCommandByRepo.api, "yarn test:ci");
   });
 
   it("discoverPackageRepos lista só pastas com package.json não ignoradas", () => {

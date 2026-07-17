@@ -1,8 +1,8 @@
 {
   "name": "repo-workspace",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
-  "description": "Centralizador local para yarn, yarn dev, yarn tsc, setup e troca de branch em múltiplos repositórios irmãos, com seleção interativa ou por CLI e suporte a NVM (Windows e Unix).",
+  "description": "Centralizador local para instalar dependências, executar desenvolvimento e testes, preparar ambientes e trocar branches em múltiplos repositórios irmãos.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -11,14 +11,14 @@
   "scripts": {
     "install": "node scripts/repo-workspace.mjs install",
     "dev": "node scripts/repo-workspace.mjs dev",
-    "tsc": "node scripts/repo-workspace.mjs tsc",
+    "test": "node scripts/repo-workspace.mjs test",
+    "test:self": "node --test tests/args.test.mjs tests/config.test.mjs tests/git.test.mjs tests/run.test.mjs tests/smoke.test.mjs tests/test-command.test.mjs",
     "setup": "node scripts/repo-workspace.mjs setup",
     "switch": "node scripts/repo-workspace.mjs switch",
     "repos:install": "node scripts/repo-workspace.mjs install",
     "repos:dev": "node scripts/repo-workspace.mjs dev",
-    "repos:tsc": "node scripts/repo-workspace.mjs tsc",
-    "repos:setup": "node scripts/repo-workspace.mjs setup",
-    "test": "node --test tests/args.test.mjs tests/config.test.mjs tests/git.test.mjs tests/smoke.test.mjs"
+    "repos:test": "node scripts/repo-workspace.mjs test",
+    "repos:setup": "node scripts/repo-workspace.mjs setup"
   },
   "dependencies": {
     "concurrently": "^9.2.1",

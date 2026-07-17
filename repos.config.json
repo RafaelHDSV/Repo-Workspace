@@ -3,5 +3,6 @@
   "nodeVersionByRepo": {
     "repo-example": "22.12.0",
     "repo-example-2": "24.14.1"
-  }
+  },
+  "testCommandByRepo": {}
 }
