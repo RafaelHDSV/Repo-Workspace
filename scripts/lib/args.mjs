@@ -2,15 +2,62 @@ const YARN_MODES = new Set(["install", "dev", "test", "setup"]);
 const ALL_MODES = new Set([...YARN_MODES, "switch"]);
 
 /**
+ * Extrai --root / --config de uma lista de args (mutando a lista residual).
+ * @param {string[]} rest
+ * @returns {{ root: string | null, config: string | null, rest: string[] }}
+ */
+export function extractGlobalFlags(rest) {
+  /** @type {string | null} */
+  let root = null;
+  /** @type {string | null} */
+  let config = null;
+  /** @type {string[]} */
+  const out = [];
+
+  for (let i = 0; i < rest.length; i++) {
+    const arg = rest[i];
+    if (arg === "--root") {
+      const value = rest[++i];
+      if (!value || value.startsWith("-")) {
+        throw new Error("Informe o valor de --root.");
+      }
+      root = value;
+      continue;
+    }
+    if (arg.startsWith("--root=")) {
+      root = arg.slice("--root=".length);
+      if (!root) throw new Error("Informe o valor de --root.");
+      continue;
+    }
+    if (arg === "--config") {
+      const value = rest[++i];
+      if (!value || value.startsWith("-")) {
+        throw new Error("Informe o valor de --config.");
+      }
+      config = value;
+      continue;
+    }
+    if (arg.startsWith("--config=")) {
+      config = arg.slice("--config=".length);
+      if (!config) throw new Error("Informe o valor de --config.");
+      continue;
+    }
+    out.push(arg);
+  }
+
+  return { root, config, rest: out };
+}
+
+/**
  * @param {string[]} argv process.argv
  * @returns
  *   | { help: true, mode?: string }
- *   | { mode: 'install'|'dev'|'test'|'setup', all: boolean, cliRepos: string[] }
- *   | { mode: 'switch', branch: string, all: boolean, cliRepos: string[] }
+ *   | { mode: 'install'|'dev'|'test'|'setup', all: boolean, cliRepos: string[], root: string | null, config: string | null }
+ *   | { mode: 'switch', branch: string, all: boolean, cliRepos: string[], root: string | null, config: string | null }
  */
 export function parseArgs(argv) {
   const mode = argv[2];
-  const rest = argv.slice(3);
+  const rawRest = argv.slice(3);
 
   if (!mode || mode === "--help" || mode === "-h") {
     return { help: true };
@@ -22,11 +69,17 @@ export function parseArgs(argv) {
     );
   }
 
+  const { root, config, rest } = extractGlobalFlags(rawRest);
+
   if (mode === "switch") {
-    return parseSwitchArgs(rest);
+    const parsed = parseSwitchArgs(rest);
+    if (parsed.help) return parsed;
+    return { ...parsed, root, config };
   }
 
-  return parseYarnModeArgs(mode, rest);
+  const parsed = parseYarnModeArgs(mode, rest);
+  if (parsed.help) return parsed;
+  return { ...parsed, root, config };
 }
 
 /**
@@ -130,5 +183,9 @@ export function printHelp() {
   yarn switch <branch> -- core api
 
 Flags comuns: --all, nomes após --, REPOS_SKIP_PROMPT=1
+  --root <path>             → raiz dos clones (default: pasta deste hub)
+  --config <file>           → repos.config.json já resolvido
+  REPOS_ROOT=<path>         → alternativa a --root
+
 switch: working tree sujo pula o repo; sem fetch/pull/force/stash.`);
 }

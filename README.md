@@ -17,14 +17,14 @@ Se você mantém vários repositórios — por exemplo `api/`, `web/` e `worker/
 
 Este repositório é a **pasta central** (*hub*): aqui ficam a ferramenta (`package.json`, `scripts/` e `repos.config.json`). Os outros produtos continuam sendo **repositórios comuns** em subpastas. O hub **não substitui** o Git de cada um — apenas orquestra os comandos a partir da raiz do hub.
 
-A raiz operacional é **o diretório onde estes arquivos estão**. Se você copia só os essenciais para outra pasta (por exemplo `repos/`), os comandos passam a atuar nessa pasta.
+A raiz operacional **padrão** é o diretório onde estes arquivos estão. Dá para apontar outra pasta com `--root` / `REPOS_ROOT` (útil em automação ou quando o script roda fora da pasta dos clones).
 
 ---
 
 ## Regra de ouro: onde colocar
 
-1. **A raiz do hub** é o diretório em que estão `package.json` (deste projeto), `repos.config.json` e `scripts/repo-workspace.mjs`.
-2. Cada outro projeto é uma **subpasta direta** dessa raiz (irmã de `scripts/`, não dentro de `scripts/`).
+1. **A raiz do hub** é o diretório em que estão `package.json` (deste projeto), `repos.config.json` e `scripts/repo-workspace.mjs` — ou o path passado em `--root` / `REPOS_ROOT`.
+2. Cada outro projeto é uma **subpasta direta** dessa raiz operacional (irmã de `scripts/` no layout clássico).
 3. Para `install` / `dev` / `test` / `setup`, só entram pastas que **tenham `package.json` na própria raiz** da subpasta.
 4. Para `switch`, entram pastas que **tenham `.git`**.
 
@@ -57,6 +57,17 @@ Todos os comandos abaixo são executados na **raiz do hub**.
 | Switch sem menu | `yarn switch main -- core api` ou `yarn switch production -- --all` |
 
 Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:test`, `yarn repos:setup`.
+
+### Raiz e config externos (automação)
+
+```bash
+node scripts/repo-workspace.mjs setup --root /caminho/dos/clones --config /caminho/repos.config.json
+# ou
+REPOS_ROOT=/caminho/dos/clones yarn setup
+```
+
+- `--root` / `REPOS_ROOT`: pasta que contém as subpastas dos repositórios (não precisa ser a pasta deste tool).
+- `--config`: JSON no formato de `repos.config.json` (já resolvido). Se omitido, lê `repos.config.json` na raiz operacional.
 
 ### Comportamento dos menus
 

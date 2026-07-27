@@ -30,7 +30,7 @@ Todos os processos recebem `CI=1` e a versão de Node definida em `nodeVersionBy
 
 O levantamento atual identificou:
 
-- Vitest já não interativo: `optimus-auth`, `uxvision` e `PERSONAL-Vieira`.
+- Vitest já não interativo: `optimus-auth` e `uxvision`.
 - Vitest em watch por padrão: `auto-x-web` e `uxvision-web`.
 - CRA/Craco em watch por padrão: `line-web`.
 - Jest não interativo: `chat-web`, `core`, `indiky-server`, `indiky-shorten`, `line-server` e `mailer-server`.

@@ -87,4 +87,20 @@ describe("config e descoberta", () => {
     assert.deepEqual(withScript, ["api", "web"]);
     assert.deepEqual(skipped, []);
   });
+
+  it("loadConfig com --config usa arquivo externo (não o da root)", () => {
+    const external = path.join(tmp, "merged.json");
+    fs.writeFileSync(
+      external,
+      JSON.stringify({
+        ignore: ["from-external"],
+        nodeVersionByRepo: { web: "22.0.0" },
+        testCommandByRepo: {},
+      }),
+    );
+    const config = loadConfig(tmp, external);
+    assert.ok(config.ignore.includes("from-external"));
+    assert.equal(config.nodeVersionByRepo.web, "22.0.0");
+    assert.equal(config.nodeVersionByRepo.api, undefined);
+  });
 });

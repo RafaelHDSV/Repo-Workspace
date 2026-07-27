@@ -8,6 +8,7 @@
  *   yarn setup [-- api]     → yarn sequencial + yarn dev paralelo (mesma seleção)
  *   yarn switch <branch> [-- --all | -- repo1 repo2]
  *   REPOS_SKIP_PROMPT=1 yarn dev
+ *   --root <path> / REPOS_ROOT / --config <file>  (raiz/config externos)
  *
  * Após yarn add, o lifecycle install roda sem TTY: o script só instala
  * sub-repos em TTY, com --all, com nomes após -- ou com REPOS_SKIP_PROMPT=1.
@@ -23,7 +24,7 @@ import {
   currentBranchName,
   discoverGitRepos,
 } from "./lib/git.mjs";
-import { ROOT } from "./lib/root.mjs";
+import { resolveRoot } from "./lib/root.mjs";
 import {
   runCommandsParallel,
   runYarnInstallSequential,
@@ -33,8 +34,14 @@ import { resolveSelection } from "./lib/select.mjs";
 import { resolveTestCommands } from "./lib/test.mjs";
 import path from "node:path";
 
-async function selectPackageRepos(parsed, config, modeLabel) {
-  const discovered = discoverPackageRepos(config, ROOT);
+/**
+ * @param {object} parsed
+ * @param {object} config
+ * @param {string} modeLabel
+ * @param {string} root
+ */
+async function selectPackageRepos(parsed, config, modeLabel, root) {
+  const discovered = discoverPackageRepos(config, root);
 
   if (discovered.length === 0) {
     if (parsed.cliRepos.length > 0) {
@@ -68,17 +75,26 @@ async function selectPackageRepos(parsed, config, modeLabel) {
   });
 }
 
-async function runInstall(parsed, config) {
-  const selected = await selectPackageRepos(parsed, config, "install");
+async function runInstall(parsed, config, root) {
+  const selected = await selectPackageRepos(parsed, config, "install", root);
   if (selected === null) return;
-  runYarnInstallSequential(selected, config, ROOT);
+  runYarnInstallSequential(selected, config, root);
 }
 
-async function runParallelScript(parsed, config, scriptName) {
-  const selected = await selectPackageRepos(parsed, config, scriptName);
+async function runParallelScript(parsed, config, scriptName, root) {
+  const selected = await selectPackageRepos(
+    parsed,
+    config,
+    scriptName,
+    root,
+  );
   if (selected === null) return;
 
-  const { withScript, skipped } = filterWithScript(selected, scriptName, ROOT);
+  const { withScript, skipped } = filterWithScript(
+    selected,
+    scriptName,
+    root,
+  );
   if (skipped.length) {
     console.error(`Sem script ${scriptName} (ignorados): ${skipped.join(", ")}`);
   }
@@ -87,11 +103,11 @@ async function runParallelScript(parsed, config, scriptName) {
     process.exit(1);
   }
 
-  await runYarnParallel(withScript, scriptName, config, ROOT);
+  await runYarnParallel(withScript, scriptName, config, root);
 }
 
-async function runTests(parsed, config) {
-  const discovered = discoverPackageRepos(config, ROOT);
+async function runTests(parsed, config, root) {
+  const discovered = discoverPackageRepos(config, root);
 
   let selected;
   if (parsed.cliRepos.length > 0) {
@@ -105,7 +121,7 @@ async function runTests(parsed, config) {
     }
     selected = parsed.cliRepos;
   } else {
-    const allResolved = resolveTestCommands(discovered, config, ROOT);
+    const allResolved = resolveTestCommands(discovered, config, root);
     if (allResolved.commands.length === 0) {
       console.error("Nenhum repositório com suíte de testes foi encontrado.");
       process.exit(1);
@@ -126,7 +142,7 @@ async function runTests(parsed, config) {
 
   if (selected === null) return;
 
-  const { commands, skipped } = resolveTestCommands(selected, config, ROOT);
+  const { commands, skipped } = resolveTestCommands(selected, config, root);
   if (skipped.length) {
     console.error(`Sem suíte de testes (ignorados): ${skipped.join(", ")}`);
   }
@@ -135,16 +151,16 @@ async function runTests(parsed, config) {
     process.exit(1);
   }
 
-  await runCommandsParallel(commands, config, ROOT, { CI: "1" });
+  await runCommandsParallel(commands, config, root, { CI: "1" });
 }
 
-async function runSetup(parsed, config) {
-  const selected = await selectPackageRepos(parsed, config, "setup");
+async function runSetup(parsed, config, root) {
+  const selected = await selectPackageRepos(parsed, config, "setup", root);
   if (selected === null) return;
 
-  runYarnInstallSequential(selected, config, ROOT);
+  runYarnInstallSequential(selected, config, root);
 
-  const { withScript, skipped } = filterWithScript(selected, "dev", ROOT);
+  const { withScript, skipped } = filterWithScript(selected, "dev", root);
   if (skipped.length) {
     console.error(`Sem script dev (ignorados): ${skipped.join(", ")}`);
   }
@@ -154,11 +170,11 @@ async function runSetup(parsed, config) {
   }
 
   console.error("\n→ Iniciando yarn dev nos selecionados com script dev…");
-  await runYarnParallel(withScript, "dev", config, ROOT);
+  await runYarnParallel(withScript, "dev", config, root);
 }
 
-async function runSwitch(parsed, config) {
-  const discovered = discoverGitRepos(ROOT, config.ignore);
+async function runSwitch(parsed, config, root) {
+  const discovered = discoverGitRepos(root, config.ignore);
 
   if (discovered.length === 0) {
     console.error("Nenhum repositório git encontrado na raiz.");
@@ -172,7 +188,7 @@ async function runSwitch(parsed, config) {
     mode: "switch",
     message: `Quais repositórios mudar para ${parsed.branch}?`,
     titleFor: (name) => {
-      const current = currentBranchName(path.join(ROOT, name));
+      const current = currentBranchName(path.join(root, name));
       return `${name}  (${current})`;
     },
   });
@@ -182,7 +198,7 @@ async function runSwitch(parsed, config) {
   const result = checkoutRepos({
     branch: parsed.branch,
     repos: selected,
-    reposRoot: ROOT,
+    reposRoot: root,
   });
   process.exit(result.exitCode);
 }
@@ -204,23 +220,24 @@ async function main() {
     process.exit(0);
   }
 
-  const config = loadConfig(ROOT);
+  const root = resolveRoot({ rootFlag: parsed.root });
+  const config = loadConfig(root, parsed.config);
 
   switch (parsed.mode) {
     case "install":
-      await runInstall(parsed, config);
+      await runInstall(parsed, config, root);
       break;
     case "dev":
-      await runParallelScript(parsed, config, "dev");
+      await runParallelScript(parsed, config, "dev", root);
       break;
     case "test":
-      await runTests(parsed, config);
+      await runTests(parsed, config, root);
       break;
     case "setup":
-      await runSetup(parsed, config);
+      await runSetup(parsed, config, root);
       break;
     case "switch":
-      await runSwitch(parsed, config);
+      await runSwitch(parsed, config, root);
       break;
     default:
       printHelp();

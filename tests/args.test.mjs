@@ -94,4 +94,45 @@ describe("parseArgs", () => {
       /Modo desconhecido/,
     );
   });
+
+  it("parseia --root e --config em modos yarn", () => {
+    const parsed = parseArgs([
+      "node",
+      "x",
+      "setup",
+      "--root",
+      "C:/repos",
+      "--config",
+      "C:/merged.json",
+      "--all",
+    ]);
+    assert.equal(parsed.mode, "setup");
+    assert.equal(parsed.root, "C:/repos");
+    assert.equal(parsed.config, "C:/merged.json");
+    assert.equal(parsed.all, true);
+  });
+
+  it("parseia --root= e --config= em switch", () => {
+    const parsed = parseArgs([
+      "node",
+      "x",
+      "switch",
+      "main",
+      "--root=/hub",
+      "--config=/cfg.json",
+      "--",
+      "api",
+    ]);
+    assert.equal(parsed.branch, "main");
+    assert.equal(parsed.root, "/hub");
+    assert.equal(parsed.config, "/cfg.json");
+    assert.deepEqual(parsed.cliRepos, ["api"]);
+  });
+
+  it("exige valor de --root", () => {
+    assert.throws(
+      () => parseArgs(["node", "x", "dev", "--root"]),
+      /Informe o valor de --root/,
+    );
+  });
 });
