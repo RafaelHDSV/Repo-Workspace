@@ -200,3 +200,7 @@ yarn test:self
 | Automatizar / CI | `--all`, nomes após `--` ou `REPOS_SKIP_PROMPT=1` |
 | Pasta não aparece no menu | Confira `package.json` / `.git` e o campo `ignore` |
 | Node incorreto em um repositório | Defina `nodeVersionByRepo` e use NVM com a versão instalada |
+
+## Apoie
+
+<a href="https://www.buymeacoffee.com/vieira" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" style="height: 60px !important;width: 217px !important;" ></a>
