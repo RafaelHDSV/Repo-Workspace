@@ -16,6 +16,22 @@ const PREFERRED_FILES = [
   "package-lock.json",
 ];
 
+/** @returns {number} */
+function settleMs() {
+  const raw = process.env.REPOS_ACTIVATE_SETTLE_MS;
+  const n = raw ? Number(raw) : 1200;
+  return Number.isFinite(n) && n >= 0 ? n : 1200;
+}
+
+/**
+ * @param {number} ms
+ */
+export function sleepMs(ms) {
+  if (ms <= 0) return;
+  const buf = new Int32Array(new SharedArrayBuffer(4));
+  Atomics.wait(buf, 0, 0, ms);
+}
+
 /**
  * @returns {string | null}
  */
@@ -64,8 +80,6 @@ export function pickRepoFile(repoPath) {
 }
 
 /**
- * Garante detecção de repos a partir de editores abertos (sem multi-root / --add).
- *
  * @param {string} root
  */
 function ensureOpenEditorsGitDetection(root) {
@@ -82,14 +96,70 @@ function ensureOpenEditorsGitDetection(root) {
     }
   }
 
-  // openEditors: Source Control passa a enxergar o .git do arquivo aberto
   settings["git.autoRepositoryDetection"] = "openEditors";
   fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
 }
 
 /**
- * Abre um arquivo de cada repo na janela atual do Cursor (`-r`).
- * O Git extension detecta o repositório via openEditors — sem --add / .code-workspace.
+ * Fecha as N abas mais recentes na janela ativa (as que acabamos de abrir).
+ * Cursor/VS Code CLI não expõe “close editor”; usamos atalho do SO.
+ *
+ * @param {number} count
+ * @returns {boolean}
+ */
+export function closeRecentEditors(count) {
+  if (count <= 0) return true;
+
+  if (process.platform === "win32") {
+    const ps = `
+Add-Type -AssemblyName System.Windows.Forms
+Start-Sleep -Milliseconds 200
+1..${count} | ForEach-Object {
+  [System.Windows.Forms.SendKeys]::SendWait('^w')
+  Start-Sleep -Milliseconds 60
+}
+`;
+    const result = spawnSync(
+      "powershell",
+      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps],
+      { encoding: "utf8", windowsHide: true },
+    );
+    return result.status === 0;
+  }
+
+  if (process.platform === "darwin") {
+    const script = `
+tell application "System Events"
+  repeat ${count} times
+    keystroke "w" using command down
+    delay 0.06
+  end repeat
+end tell
+`;
+    const result = spawnSync("osascript", ["-e", script], {
+      encoding: "utf8",
+    });
+    return result.status === 0;
+  }
+
+  // Linux: tenta xdotool se existir
+  const which = spawnSync("sh", ["-c", "command -v xdotool"], {
+    encoding: "utf8",
+  });
+  if (which.status === 0 && which.stdout.trim()) {
+    for (let i = 0; i < count; i++) {
+      spawnSync("xdotool", ["key", "ctrl+w"], { encoding: "utf8" });
+      sleepMs(60);
+    }
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Abre 1 arquivo por repo na janela atual, espera o SCM detectar, depois fecha as abas.
+ * O repositório permanece no Source Control (openEditors já registrou o .git).
  *
  * @param {string[]} repos nomes das pastas irmãs
  * @param {string} root raiz operacional dos clones
@@ -143,14 +213,13 @@ export function activateRepos(repos, root) {
 
   ensureOpenEditorsGitDetection(root);
 
+  const waitMs = settleMs();
   console.error(
-    `\n→ Source Control: abrindo 1 arquivo por repo na janela do ${editor}`,
+    `\n→ Source Control: abrindo ${filesToOpen.length} arquivo(s) no ${editor}, ` +
+      `aguardando ${waitMs}ms, depois fechando as abas`,
   );
-  console.error(
-    "  (sem --add / sem .code-workspace; detecção via git.autoRepositoryDetection=openEditors)\n",
-  );
+  console.error("  (repos permanecem no SCM; sem --add / sem .code-workspace)\n");
 
-  // Uma chamada: reutiliza a janela ativa e abre todas as tabs.
   const result = spawnSync(editor, ["-r", ...filesToOpen], {
     encoding: "utf8",
     windowsHide: true,
@@ -171,9 +240,19 @@ export function activateRepos(repos, root) {
     );
   }
 
-  console.error(
-    "\nSe o Source Control não listar na hora: Command Palette → “Git: Reopen Closed Repositories”.",
-  );
+  sleepMs(waitMs);
+
+  const closed = closeRecentEditors(filesToOpen.length);
+  if (closed) {
+    console.error(
+      `\n→ Fechou ${filesToOpen.length} aba(s). Repos devem continuar no Source Control.`,
+    );
+  } else {
+    console.error(
+      "\nNão foi possível fechar as abas automaticamente neste SO. " +
+        "Feche manualmente (Ctrl+W / Cmd+W) — os repos já devem estar no Source Control.",
+    );
+  }
 
   return { ok: true, activated, skipped, failed };
 }
