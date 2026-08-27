@@ -59,7 +59,7 @@ Todos os comandos abaixo são executados na **raiz do hub**.
 
 Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:test`, `yarn repos:setup`, `yarn repos:open`.
 
-**Source Control:** `install`, `dev`, `test`, `setup`, `switch` e `open` adicionam os repositórios selecionados ao workspace do Cursor/VS Code (`cursor --add` / `code --add`). Use `yarn open` quando quiser só isso, sem rodar yarn ou dev. Desative com `REPOS_SKIP_ACTIVATE=1`; force o editor com `REPOS_EDITOR=cursor|code`.
+**Source Control:** `install`, `dev`, `test`, `setup`, `switch` e `open` adicionam os repositórios selecionados ao workspace do Cursor/VS Code (`cursor --add` / `code --add`, um repo por vez) e mantêm `repos.code-workspace` na raiz dos clones. Use `yarn open` quando quiser só isso. Desative com `REPOS_SKIP_ACTIVATE=1`; force o editor com `REPOS_EDITOR=cursor|code`. Após `vieira update --tools`, confira que `~/.vieira/tools/repo-workspace` tem a versão nova (ou use `VIEIRA_REPO_WORKSPACE` apontando para seu clone local).
 
 ### Raiz e config externos (automação)
 
