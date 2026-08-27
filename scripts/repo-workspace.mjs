@@ -77,20 +77,9 @@ async function selectPackageRepos(parsed, config, modeLabel, root) {
   });
 }
 
-/**
- * @param {string[] | null} selected
- * @param {string} root
- * @param {{ ignore: string[] }} config
- */
-function activateSelected(selected, root, config) {
-  if (!selected?.length) return;
-  activateRepos(selected, root, { ignore: config.ignore });
-}
-
 async function runInstall(parsed, config, root) {
   const selected = await selectPackageRepos(parsed, config, "install", root);
   if (selected === null) return;
-  activateSelected(selected, root, config);
   runYarnInstallSequential(selected, config, root);
 }
 
@@ -102,8 +91,6 @@ async function runParallelScript(parsed, config, scriptName, root) {
     root,
   );
   if (selected === null) return;
-
-  activateSelected(selected, root, config);
 
   const { withScript, skipped } = filterWithScript(
     selected,
@@ -157,8 +144,6 @@ async function runTests(parsed, config, root) {
 
   if (selected === null) return;
 
-  activateSelected(selected, root, config);
-
   const { commands, skipped } = resolveTestCommands(selected, config, root);
   if (skipped.length) {
     console.error(`Sem suíte de testes (ignorados): ${skipped.join(", ")}`);
@@ -174,8 +159,6 @@ async function runTests(parsed, config, root) {
 async function runSetup(parsed, config, root) {
   const selected = await selectPackageRepos(parsed, config, "setup", root);
   if (selected === null) return;
-
-  activateSelected(selected, root, config);
 
   runYarnInstallSequential(selected, config, root);
 
@@ -214,9 +197,7 @@ async function runOpen(parsed, config, root) {
 
   if (selected === null) return;
 
-  const { ok, activated } = activateRepos(selected, root, {
-    ignore: config.ignore,
-  });
+  const { ok, activated } = activateRepos(selected, root);
   if (!ok && activated.length === 0) {
     process.exit(1);
   }
@@ -243,8 +224,6 @@ async function runSwitch(parsed, config, root) {
   });
 
   if (selected === null) return;
-
-  activateSelected(selected, root, config);
 
   const result = checkoutRepos({
     branch: parsed.branch,
