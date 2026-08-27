@@ -1,6 +1,6 @@
 {
   "name": "repo-workspace",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Centralizador local para instalar dependências, executar desenvolvimento e testes, preparar ambientes e trocar branches em múltiplos repositórios irmãos.",
   "license": "MIT",
@@ -12,13 +12,15 @@
     "install": "node scripts/repo-workspace.mjs install",
     "dev": "node scripts/repo-workspace.mjs dev",
     "test": "node scripts/repo-workspace.mjs test",
-    "test:self": "node --test tests/args.test.mjs tests/config.test.mjs tests/git.test.mjs tests/root.test.mjs tests/run.test.mjs tests/smoke.test.mjs tests/test-command.test.mjs",
+    "test:self": "node --test tests/args.test.mjs tests/config.test.mjs tests/git.test.mjs tests/root.test.mjs tests/run.test.mjs tests/smoke.test.mjs tests/test-command.test.mjs tests/workspace.test.mjs",
     "setup": "node scripts/repo-workspace.mjs setup",
+    "open": "node scripts/repo-workspace.mjs open",
     "switch": "node scripts/repo-workspace.mjs switch",
     "repos:install": "node scripts/repo-workspace.mjs install",
     "repos:dev": "node scripts/repo-workspace.mjs dev",
     "repos:test": "node scripts/repo-workspace.mjs test",
-    "repos:setup": "node scripts/repo-workspace.mjs setup"
+    "repos:setup": "node scripts/repo-workspace.mjs setup",
+    "repos:open": "node scripts/repo-workspace.mjs open"
   },
   "dependencies": {
     "concurrently": "^9.2.1",

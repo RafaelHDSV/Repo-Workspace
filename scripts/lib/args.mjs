@@ -1,4 +1,4 @@
-const YARN_MODES = new Set(["install", "dev", "test", "setup"]);
+const YARN_MODES = new Set(["install", "dev", "test", "setup", "open"]);
 const ALL_MODES = new Set([...YARN_MODES, "switch"]);
 
 /**
@@ -65,7 +65,7 @@ export function parseArgs(argv) {
 
   if (!ALL_MODES.has(mode)) {
     throw new Error(
-      `Modo desconhecido: ${mode}. Use install, dev, test, setup ou switch.`,
+      `Modo desconhecido: ${mode}. Use install, dev, test, setup, open ou switch.`,
     );
   }
 
@@ -178,11 +178,14 @@ export function printHelp() {
   yarn dev                  → yarn dev em paralelo
   yarn test                 → suítes canônicas em paralelo
   yarn setup                → yarn e depois yarn dev (mesma seleção)
+  yarn open                 → adiciona repos ao Cursor/VS Code (Source Control)
   yarn switch <branch>      → troca de branch nos clones git
   yarn switch <branch> -- --all
   yarn switch <branch> -- core api
 
 Flags comuns: --all, nomes após --, REPOS_SKIP_PROMPT=1
+  REPOS_SKIP_ACTIVATE=1     → não adiciona pastas ao Cursor/VS Code
+  REPOS_EDITOR=cursor|code  → CLI do editor (auto-detecta cursor, depois code)
   --root <path>             → raiz dos clones (default: pasta deste hub)
   --config <file>           → repos.config.json já resolvido
   REPOS_ROOT=<path>         → alternativa a --root

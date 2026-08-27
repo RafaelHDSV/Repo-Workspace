@@ -29,7 +29,7 @@ describe("parseArgs", () => {
     assert.deepEqual(parsed.cliRepos, ["core"]);
   });
 
-  it("reconhece test e setup", () => {
+  it("reconhece test, setup e open", () => {
     assert.equal(
       parseArgs(["node", "x", "test", "api"]).mode,
       "test",
@@ -37,6 +37,10 @@ describe("parseArgs", () => {
     assert.equal(
       parseArgs(["node", "x", "setup"]).mode,
       "setup",
+    );
+    assert.equal(
+      parseArgs(["node", "x", "open"]).mode,
+      "open",
     );
   });
 

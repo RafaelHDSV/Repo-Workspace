@@ -52,11 +52,14 @@ Todos os comandos abaixo são executados na **raiz do hub**.
 | Subir `yarn dev` em paralelo **com menu** | `yarn dev` |
 | Rodar as suítes canônicas em paralelo **com menu** | `yarn test` |
 | Instalar e depois subir `dev` (mesma seleção) | `yarn setup` |
+| Adicionar repos ao Source Control (Cursor/VS Code) | `yarn open` |
 | Trocar de branch nos clones git | `yarn switch <branch>` |
 | Nomes explícitos (qualquer modo yarn) | `yarn run install -- -- api web` ou `yarn test -- api web` |
 | Switch sem menu | `yarn switch main -- core api` ou `yarn switch production -- --all` |
 
-Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:test`, `yarn repos:setup`.
+Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:test`, `yarn repos:setup`, `yarn repos:open`.
+
+**Source Control:** `install`, `dev`, `test`, `setup`, `switch` e `open` adicionam os repositórios selecionados ao workspace do Cursor/VS Code (`cursor --add` / `code --add`). Use `yarn open` quando quiser só isso, sem rodar yarn ou dev. Desative com `REPOS_SKIP_ACTIVATE=1`; force o editor com `REPOS_EDITOR=cursor|code`.
 
 ### Raiz e config externos (automação)
 

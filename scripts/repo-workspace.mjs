@@ -6,6 +6,7 @@
  *   yarn dev [-- api]
  *   yarn test [-- api]
  *   yarn setup [-- api]     → yarn sequencial + yarn dev paralelo (mesma seleção)
+ *   yarn open [-- api]      → adiciona repos ao Cursor/VS Code (Source Control)
  *   yarn switch <branch> [-- --all | -- repo1 repo2]
  *   REPOS_SKIP_PROMPT=1 yarn dev
  *   --root <path> / REPOS_ROOT / --config <file>  (raiz/config externos)
@@ -32,6 +33,7 @@ import {
 } from "./lib/run.mjs";
 import { resolveSelection } from "./lib/select.mjs";
 import { resolveTestCommands } from "./lib/test.mjs";
+import { activateRepos } from "./lib/workspace.mjs";
 import path from "node:path";
 
 /**
@@ -75,9 +77,19 @@ async function selectPackageRepos(parsed, config, modeLabel, root) {
   });
 }
 
+/**
+ * @param {string[] | null} selected
+ * @param {string} root
+ */
+function activateSelected(selected, root) {
+  if (!selected?.length) return;
+  activateRepos(selected, root);
+}
+
 async function runInstall(parsed, config, root) {
   const selected = await selectPackageRepos(parsed, config, "install", root);
   if (selected === null) return;
+  activateSelected(selected, root);
   runYarnInstallSequential(selected, config, root);
 }
 
@@ -89,6 +101,8 @@ async function runParallelScript(parsed, config, scriptName, root) {
     root,
   );
   if (selected === null) return;
+
+  activateSelected(selected, root);
 
   const { withScript, skipped } = filterWithScript(
     selected,
@@ -142,6 +156,8 @@ async function runTests(parsed, config, root) {
 
   if (selected === null) return;
 
+  activateSelected(selected, root);
+
   const { commands, skipped } = resolveTestCommands(selected, config, root);
   if (skipped.length) {
     console.error(`Sem suíte de testes (ignorados): ${skipped.join(", ")}`);
@@ -158,6 +174,8 @@ async function runSetup(parsed, config, root) {
   const selected = await selectPackageRepos(parsed, config, "setup", root);
   if (selected === null) return;
 
+  activateSelected(selected, root);
+
   runYarnInstallSequential(selected, config, root);
 
   const { withScript, skipped } = filterWithScript(selected, "dev", root);
@@ -171,6 +189,34 @@ async function runSetup(parsed, config, root) {
 
   console.error("\n→ Iniciando yarn dev nos selecionados com script dev…");
   await runYarnParallel(withScript, "dev", config, root);
+}
+
+async function runOpen(parsed, config, root) {
+  const discovered = discoverGitRepos(root, config.ignore);
+
+  if (discovered.length === 0) {
+    console.error("Nenhum repositório git encontrado na raiz.");
+    process.exit(1);
+  }
+
+  const selected = await resolveSelection({
+    discovered,
+    all: parsed.all,
+    cliRepos: parsed.cliRepos,
+    mode: "open",
+    message: "Quais repositórios adicionar ao Source Control?",
+    titleFor: (name) => {
+      const current = currentBranchName(path.join(root, name));
+      return `${name}  (${current})`;
+    },
+  });
+
+  if (selected === null) return;
+
+  const { ok, activated } = activateRepos(selected, root);
+  if (!ok && activated.length === 0) {
+    process.exit(1);
+  }
 }
 
 async function runSwitch(parsed, config, root) {
@@ -194,6 +240,8 @@ async function runSwitch(parsed, config, root) {
   });
 
   if (selected === null) return;
+
+  activateSelected(selected, root);
 
   const result = checkoutRepos({
     branch: parsed.branch,
@@ -235,6 +283,9 @@ async function main() {
       break;
     case "setup":
       await runSetup(parsed, config, root);
+      break;
+    case "open":
+      await runOpen(parsed, config, root);
       break;
     case "switch":
       await runSwitch(parsed, config, root);
