@@ -59,7 +59,7 @@ Todos os comandos abaixo são executados na **raiz do hub**.
 
 Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:test`, `yarn repos:setup`, `yarn repos:open`.
 
-**Source Control:** `install`, `dev`, `test`, `setup`, `switch` e `open` usam `cursor --add` / `code --add` (e `--remove` nos não selecionados) na **janela ativa** — sem criar `.code-workspace`. Use `yarn open` quando quiser só isso. Desative com `REPOS_SKIP_ACTIVATE=1`; force o editor com `REPOS_EDITOR=cursor|code`. É preciso ter uma janela do Cursor aberta.
+**Source Control:** `install`, `dev`, `test`, `setup`, `switch` e `open` abrem **um arquivo** de cada repo selecionado na janela atual (`cursor -r`), para o Git detectar o clone via `openEditors` — **sem** `--add` e **sem** `.code-workspace`. Use `yarn open` quando quiser só isso. Desative com `REPOS_SKIP_ACTIVATE=1`.
 
 ### Raiz e config externos (automação)
 

@@ -6,7 +6,7 @@
  *   yarn dev [-- api]
  *   yarn test [-- api]
  *   yarn setup [-- api]     → yarn sequencial + yarn dev paralelo (mesma seleção)
- *   yarn open [-- api]      → repos selecionados no Source Control (sem .code-workspace)
+ *   yarn open [-- api]      → abre 1 arquivo por repo (Source Control via openEditors)
  *   yarn switch <branch> [-- --all | -- repo1 repo2]
  *   REPOS_SKIP_PROMPT=1 yarn dev
  *   --root <path> / REPOS_ROOT / --config <file>  (raiz/config externos)

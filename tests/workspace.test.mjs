@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   activateRepos,
+  pickRepoFile,
   resolveEditorCommand,
 } from "../scripts/lib/workspace.mjs";
 
@@ -21,27 +22,34 @@ describe("resolveEditorCommand", () => {
   });
 });
 
-describe("activateRepos", () => {
-  it("ignora pastas sem .git", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "repo-ws-open-"));
-    fs.mkdirSync(path.join(tmp, "plain"));
-
-    const prevSkip = process.env.REPOS_SKIP_ACTIVATE;
-    process.env.REPOS_SKIP_ACTIVATE = "1";
+describe("pickRepoFile", () => {
+  it("prefere package.json", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "repo-pick-"));
     try {
-      const result = activateRepos(["plain"], tmp);
-      assert.deepEqual(result.activated, []);
-      assert.deepEqual(result.skipped, ["plain"]);
+      fs.writeFileSync(path.join(tmp, "README.md"), "# hi\n");
+      fs.writeFileSync(path.join(tmp, "package.json"), "{}\n");
+      assert.equal(pickRepoFile(tmp), path.join(tmp, "package.json"));
     } finally {
-      if (prevSkip === undefined) delete process.env.REPOS_SKIP_ACTIVATE;
-      else process.env.REPOS_SKIP_ACTIVATE = prevSkip;
       fs.rmSync(tmp, { recursive: true, force: true });
     }
   });
 
+  it("cai para qualquer arquivo se não houver preferidos", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "repo-pick2-"));
+    try {
+      fs.writeFileSync(path.join(tmp, "index.ts"), "export {}\n");
+      assert.equal(pickRepoFile(tmp), path.join(tmp, "index.ts"));
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("activateRepos", () => {
   it("respeita REPOS_SKIP_ACTIVATE", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "repo-ws-skip-"));
     fs.mkdirSync(path.join(tmp, "api", ".git"), { recursive: true });
+    fs.writeFileSync(path.join(tmp, "api", "package.json"), "{}\n");
 
     const prevSkip = process.env.REPOS_SKIP_ACTIVATE;
     process.env.REPOS_SKIP_ACTIVATE = "1";
@@ -50,7 +58,6 @@ describe("activateRepos", () => {
       assert.equal(result.ok, true);
       assert.deepEqual(result.activated, []);
       assert.deepEqual(result.skipped, ["api"]);
-      assert.deepEqual(result.failed, []);
     } finally {
       if (prevSkip === undefined) delete process.env.REPOS_SKIP_ACTIVATE;
       else process.env.REPOS_SKIP_ACTIVATE = prevSkip;

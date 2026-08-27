@@ -1,8 +1,20 @@
-import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
-import { discoverGitRepos, isGitRepo } from "./git.mjs";
+import { spawnSync } from "node:child_process";
+import { isGitRepo } from "./git.mjs";
 
 const EDITOR_CANDIDATES = ["cursor", "code"];
+
+const PREFERRED_FILES = [
+  "package.json",
+  "README.md",
+  "readme.md",
+  "Readme.md",
+  ".gitignore",
+  "LICENSE",
+  "yarn.lock",
+  "package-lock.json",
+];
 
 /**
  * @returns {string | null}
@@ -24,30 +36,66 @@ export function resolveEditorCommand() {
 }
 
 /**
- * @param {string} editor
- * @param {"--add" | "--remove"} flag
- * @param {string} folderPath
+ * Escolhe um arquivo da raiz do repo para abrir (dispara detecção git via openEditors).
+ *
+ * @param {string} repoPath
+ * @returns {string | null} path absoluto
  */
-function runEditorFolderFlag(editor, flag, folderPath) {
-  return spawnSync(editor, [flag, folderPath], {
-    encoding: "utf8",
-    windowsHide: true,
-    shell: process.platform === "win32",
-  });
+export function pickRepoFile(repoPath) {
+  for (const name of PREFERRED_FILES) {
+    const candidate = path.join(repoPath, name);
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+
+  try {
+    const entries = fs.readdirSync(repoPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      if (entry.name.startsWith(".") && entry.name !== ".gitignore") continue;
+      return path.join(repoPath, entry.name);
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 /**
- * Adiciona pastas dos repos à janela ativa do Cursor/VS Code (`--add`) para
- * aparecerem no Source Control. Não cria arquivo .code-workspace.
+ * Garante detecção de repos a partir de editores abertos (sem multi-root / --add).
  *
- * Repos git na raiz que não foram selecionados saem da janela (`--remove`).
+ * @param {string} root
+ */
+function ensureOpenEditorsGitDetection(root) {
+  const settingsPath = path.join(root, ".vscode", "settings.json");
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+
+  /** @type {Record<string, unknown>} */
+  let settings = {};
+  if (fs.existsSync(settingsPath)) {
+    try {
+      settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    } catch {
+      settings = {};
+    }
+  }
+
+  // openEditors: Source Control passa a enxergar o .git do arquivo aberto
+  settings["git.autoRepositoryDetection"] = "openEditors";
+  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
+}
+
+/**
+ * Abre um arquivo de cada repo na janela atual do Cursor (`-r`).
+ * O Git extension detecta o repositório via openEditors — sem --add / .code-workspace.
  *
- * @param {string[]} repos nomes das pastas irmãs selecionadas
+ * @param {string[]} repos nomes das pastas irmãs
  * @param {string} root raiz operacional dos clones
- * @param {{ ignore?: string[] }} [options]
  * @returns {{ ok: boolean, activated: string[], skipped: string[], failed: string[] }}
  */
-export function activateRepos(repos, root, options = {}) {
+export function activateRepos(repos, root) {
   if (process.env.REPOS_SKIP_ACTIVATE === "1") {
     return { ok: true, activated: [], skipped: repos, failed: [] };
   }
@@ -58,18 +106,29 @@ export function activateRepos(repos, root, options = {}) {
   const skipped = [];
   /** @type {string[]} */
   const failed = [];
+  /** @type {string[]} */
+  const filesToOpen = [];
 
   for (const name of repos) {
     const repoPath = path.resolve(root, name);
     if (!isGitRepo(repoPath)) {
-      console.error(`[${name}] ignorado na ativação: não é repositório git`);
+      console.error(`[${name}] ignorado: não é repositório git`);
       skipped.push(name);
       continue;
     }
+
+    const filePath = pickRepoFile(repoPath);
+    if (!filePath) {
+      console.error(`[${name}] ignorado: nenhum arquivo na raiz para abrir`);
+      skipped.push(name);
+      continue;
+    }
+
+    filesToOpen.push(filePath);
     activated.push(name);
   }
 
-  if (activated.length === 0) {
+  if (filesToOpen.length === 0) {
     return { ok: false, activated, skipped, failed };
   }
 
@@ -77,57 +136,44 @@ export function activateRepos(repos, root, options = {}) {
   if (!editor) {
     console.error(
       "Cursor/VS Code não encontrado no PATH. " +
-        "Instale o CLI (Shell Command: Install 'cursor' command) " +
-        "ou defina REPOS_EDITOR=cursor|code.",
+        "Instale o CLI ou defina REPOS_EDITOR=cursor|code.",
     );
     return { ok: false, activated, skipped, failed: activated };
   }
 
-  const selected = new Set(activated);
-  const allGit = discoverGitRepos(root, options.ignore ?? []);
-  const toRemove = allGit.filter((name) => !selected.has(name));
+  ensureOpenEditorsGitDetection(root);
 
   console.error(
-    `\n→ Source Control: ativando ${activated.length} repositório(s) na janela do ${editor}`,
+    `\n→ Source Control: abrindo 1 arquivo por repo na janela do ${editor}`,
   );
   console.error(
-    "  (usa --add na janela ativa; não cria .code-workspace)\n",
+    "  (sem --add / sem .code-workspace; detecção via git.autoRepositoryDetection=openEditors)\n",
   );
 
-  for (const name of toRemove) {
-    const folderPath = path.resolve(root, name);
-    const result = runEditorFolderFlag(editor, "--remove", folderPath);
-    if (result.status === 0) {
-      console.error(`[${name}] removido da janela`);
-    }
-  }
+  // Uma chamada: reutiliza a janela ativa e abre todas as tabs.
+  const result = spawnSync(editor, ["-r", ...filesToOpen], {
+    encoding: "utf8",
+    windowsHide: true,
+    shell: process.platform === "win32",
+  });
 
-  for (const name of activated) {
-    const folderPath = path.resolve(root, name);
-    const result = runEditorFolderFlag(editor, "--add", folderPath);
+  if (result.status !== 0) {
     const errText = [result.stderr, result.stdout].filter(Boolean).join("").trim();
-
-    if (result.status !== 0) {
-      console.error(
-        `[${name}] falha (${editor} --add): ${errText || `exit ${result.status}`}`,
-      );
-      failed.push(name);
-      continue;
-    }
-
-    console.error(`[${name}] adicionado ao Source Control`);
+    console.error(
+      `Falha ao abrir arquivos (${editor} -r): ${errText || `exit ${result.status}`}`,
+    );
+    return { ok: false, activated: [], skipped, failed: activated };
   }
 
-  if (failed.length > 0) {
+  for (let i = 0; i < activated.length; i++) {
     console.error(
-      `\n${failed.length} repo(s) falharam. Confirme que há uma janela do Cursor aberta e o CLI no PATH.`,
+      `[${activated[i]}] aberto → ${path.basename(filesToOpen[i])}`,
     );
   }
 
-  return {
-    ok: failed.length === 0,
-    activated: activated.filter((name) => !failed.includes(name)),
-    skipped,
-    failed,
-  };
+  console.error(
+    "\nSe o Source Control não listar na hora: Command Palette → “Git: Reopen Closed Repositories”.",
+  );
+
+  return { ok: true, activated, skipped, failed };
 }
