@@ -16,11 +16,11 @@ const PREFERRED_FILES = [
   "package-lock.json",
 ];
 
-/** @returns {number} */
+/** Ms after opening each file before closing (Git precisa registrar o repo). */
 function settleMs() {
   const raw = process.env.REPOS_ACTIVATE_SETTLE_MS;
-  const n = raw ? Number(raw) : 1200;
-  return Number.isFinite(n) && n >= 0 ? n : 1200;
+  const n = raw ? Number(raw) : 3000;
+  return Number.isFinite(n) && n >= 0 ? n : 3000;
 }
 
 /**
@@ -52,10 +52,8 @@ export function resolveEditorCommand() {
 }
 
 /**
- * Escolhe um arquivo da raiz do repo para abrir (dispara detecção git via openEditors).
- *
  * @param {string} repoPath
- * @returns {string | null} path absoluto
+ * @returns {string | null}
  */
 export function pickRepoFile(repoPath) {
   for (const name of PREFERRED_FILES) {
@@ -101,9 +99,14 @@ function ensureOpenEditorsGitDetection(root) {
 }
 
 /**
- * Fecha as N abas mais recentes na janela ativa (as que acabamos de abrir).
- * Cursor/VS Code CLI não expõe “close editor”; usamos atalho do SO.
- *
+ * Fecha a aba ativa (a que acabamos de abrir).
+ * @returns {boolean}
+ */
+export function closeActiveEditor() {
+  return closeRecentEditors(1);
+}
+
+/**
  * @param {number} count
  * @returns {boolean}
  */
@@ -113,10 +116,10 @@ export function closeRecentEditors(count) {
   if (process.platform === "win32") {
     const ps = `
 Add-Type -AssemblyName System.Windows.Forms
-Start-Sleep -Milliseconds 200
+Start-Sleep -Milliseconds 150
 1..${count} | ForEach-Object {
   [System.Windows.Forms.SendKeys]::SendWait('^w')
-  Start-Sleep -Milliseconds 60
+  Start-Sleep -Milliseconds 80
 }
 `;
     const result = spawnSync(
@@ -132,7 +135,7 @@ Start-Sleep -Milliseconds 200
 tell application "System Events"
   repeat ${count} times
     keystroke "w" using command down
-    delay 0.06
+    delay 0.08
   end repeat
 end tell
 `;
@@ -142,14 +145,13 @@ end tell
     return result.status === 0;
   }
 
-  // Linux: tenta xdotool se existir
   const which = spawnSync("sh", ["-c", "command -v xdotool"], {
     encoding: "utf8",
   });
   if (which.status === 0 && which.stdout.trim()) {
     for (let i = 0; i < count; i++) {
       spawnSync("xdotool", ["key", "ctrl+w"], { encoding: "utf8" });
-      sleepMs(60);
+      sleepMs(80);
     }
     return true;
   }
@@ -158,11 +160,11 @@ end tell
 }
 
 /**
- * Abre 1 arquivo por repo na janela atual, espera o SCM detectar, depois fecha as abas.
- * O repositório permanece no Source Control (openEditors já registrou o .git).
+ * Um repo por vez: abre arquivo → espera SCM → fecha aba.
+ * Em lote o Git só dava tempo de registrar ~3 de 8.
  *
- * @param {string[]} repos nomes das pastas irmãs
- * @param {string} root raiz operacional dos clones
+ * @param {string[]} repos
+ * @param {string} root
  * @returns {{ ok: boolean, activated: string[], skipped: string[], failed: string[] }}
  */
 export function activateRepos(repos, root) {
@@ -176,8 +178,8 @@ export function activateRepos(repos, root) {
   const skipped = [];
   /** @type {string[]} */
   const failed = [];
-  /** @type {string[]} */
-  const filesToOpen = [];
+  /** @type {{ name: string, file: string }[]} */
+  const queue = [];
 
   for (const name of repos) {
     const repoPath = path.resolve(root, name);
@@ -194,11 +196,10 @@ export function activateRepos(repos, root) {
       continue;
     }
 
-    filesToOpen.push(filePath);
-    activated.push(name);
+    queue.push({ name, file: filePath });
   }
 
-  if (filesToOpen.length === 0) {
+  if (queue.length === 0) {
     return { ok: false, activated, skipped, failed };
   }
 
@@ -208,51 +209,67 @@ export function activateRepos(repos, root) {
       "Cursor/VS Code não encontrado no PATH. " +
         "Instale o CLI ou defina REPOS_EDITOR=cursor|code.",
     );
-    return { ok: false, activated, skipped, failed: activated };
+    return {
+      ok: false,
+      activated,
+      skipped,
+      failed: queue.map((q) => q.name),
+    };
   }
 
   ensureOpenEditorsGitDetection(root);
 
   const waitMs = settleMs();
   console.error(
-    `\n→ Source Control: abrindo ${filesToOpen.length} arquivo(s) no ${editor}, ` +
-      `aguardando ${waitMs}ms, depois fechando as abas`,
+    `\n→ Source Control: ${queue.length} repo(s) — um a um ` +
+      `(abrir com foco → ${waitMs}ms → fechar aba)`,
   );
-  console.error("  (repos permanecem no SCM; sem --add / sem .code-workspace)\n");
+  console.error("  (sem --add / sem .code-workspace)\n");
 
-  const result = spawnSync(editor, ["-r", ...filesToOpen], {
-    encoding: "utf8",
-    windowsHide: true,
-    shell: process.platform === "win32",
-  });
+  for (const { name, file } of queue) {
+    // -g força o arquivo como aba ativa/visível (não só “aberto em background”)
+    const open = spawnSync(editor, ["-r", "-g", `${file}:1`], {
+      encoding: "utf8",
+      windowsHide: true,
+      shell: process.platform === "win32",
+    });
 
-  if (result.status !== 0) {
-    const errText = [result.stderr, result.stdout].filter(Boolean).join("").trim();
-    console.error(
-      `Falha ao abrir arquivos (${editor} -r): ${errText || `exit ${result.status}`}`,
-    );
-    return { ok: false, activated: [], skipped, failed: activated };
+    if (open.status !== 0) {
+      const errText = [open.stderr, open.stdout].filter(Boolean).join("").trim();
+      console.error(
+        `[${name}] falha ao abrir (${editor} -r -g): ${errText || `exit ${open.status}`}`,
+      );
+      failed.push(name);
+      continue;
+    }
+
+    console.error(`[${name}] em foco → ${path.basename(file)} (${waitMs}ms)`);
+    sleepMs(waitMs);
+
+    if (!closeActiveEditor()) {
+      console.error(
+        `[${name}] não fechou a aba automaticamente — feche com Ctrl+W`,
+      );
+    } else {
+      console.error(`[${name}] aba fechada (repo no Source Control)`);
+    }
+
+    activated.push(name);
+    sleepMs(200);
   }
 
-  for (let i = 0; i < activated.length; i++) {
-    console.error(
-      `[${activated[i]}] aberto → ${path.basename(filesToOpen[i])}`,
-    );
-  }
-
-  sleepMs(waitMs);
-
-  const closed = closeRecentEditors(filesToOpen.length);
-  if (closed) {
-    console.error(
-      `\n→ Fechou ${filesToOpen.length} aba(s). Repos devem continuar no Source Control.`,
-    );
+  if (failed.length > 0) {
+    console.error(`\n${failed.length} repo(s) falharam na ativação.`);
   } else {
     console.error(
-      "\nNão foi possível fechar as abas automaticamente neste SO. " +
-        "Feche manualmente (Ctrl+W / Cmd+W) — os repos já devem estar no Source Control.",
+      `\n→ ${activated.length} repositório(s) ativados no Source Control.`,
     );
   }
 
-  return { ok: true, activated, skipped, failed };
+  return {
+    ok: failed.length === 0,
+    activated,
+    skipped,
+    failed,
+  };
 }

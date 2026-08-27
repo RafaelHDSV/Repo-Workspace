@@ -185,7 +185,7 @@ export function printHelp() {
 
 Flags comuns: --all, nomes após --, REPOS_SKIP_PROMPT=1
   REPOS_SKIP_ACTIVATE=1     → não abre arquivos no editor
-  REPOS_ACTIVATE_SETTLE_MS  → ms antes de fechar as abas (padrão 1200)
+  REPOS_ACTIVATE_SETTLE_MS  → ms por repo com arquivo em foco (padrão 3000)
   REPOS_EDITOR=cursor|code  → CLI do editor (auto-detecta cursor, depois code)
   --root <path>             → raiz dos clones (default: pasta deste hub)
   --config <file>           → repos.config.json já resolvido

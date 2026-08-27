@@ -59,7 +59,7 @@ Todos os comandos abaixo são executados na **raiz do hub**.
 
 Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:test`, `yarn repos:setup`, `yarn repos:open`.
 
-**Source Control:** `install`, `dev`, `test`, `setup`, `switch` e `open` abrem **um arquivo** por repo (`cursor -r`), esperam a detecção do Git e **fecham as abas** (Ctrl+W / Cmd+W). Os repos ficam no Source Control. Sem `--add` / sem `.code-workspace`. Ajuste o delay com `REPOS_ACTIVATE_SETTLE_MS` (padrão 1200). Desative com `REPOS_SKIP_ACTIVATE=1`.
+**Source Control:** um arquivo por vez com foco (`cursor -r -g` → espera 3000ms → Ctrl+W). Ajuste com `REPOS_ACTIVATE_SETTLE_MS`. Sem `--add` / sem `.code-workspace`. Desative com `REPOS_SKIP_ACTIVATE=1`.
 
 ### Raiz e config externos (automação)
 
