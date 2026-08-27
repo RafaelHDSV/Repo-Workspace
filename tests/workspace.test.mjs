@@ -5,23 +5,9 @@ import os from "node:os";
 import path from "node:path";
 import {
   activateRepos,
-  resolveEditorCommand,
-  syncWorkspaceFile,
-  WORKSPACE_FILENAME,
+  scmSettingsPath,
+  syncScmSettings,
 } from "../scripts/lib/workspace.mjs";
-
-describe("resolveEditorCommand", () => {
-  it("prefere REPOS_EDITOR quando definido", () => {
-    const prev = process.env.REPOS_EDITOR;
-    process.env.REPOS_EDITOR = "fake-editor";
-    try {
-      assert.equal(resolveEditorCommand(), "fake-editor");
-    } finally {
-      if (prev === undefined) delete process.env.REPOS_EDITOR;
-      else process.env.REPOS_EDITOR = prev;
-    }
-  });
-});
 
 describe("activateRepos", () => {
   it("ignora pastas sem .git", () => {
@@ -64,31 +50,43 @@ describe("activateRepos", () => {
   });
 });
 
-describe("syncWorkspaceFile", () => {
-  it("cria repos.code-workspace com paths relativos", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "repo-ws-file-"));
+describe("syncScmSettings", () => {
+  it("grava git.ignoredRepositories para repos não selecionados", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "repo-ws-scm-"));
     try {
-      const filePath = syncWorkspaceFile(["api", "web"], tmp);
-      assert.equal(path.basename(filePath), WORKSPACE_FILENAME);
-      const doc = JSON.parse(fs.readFileSync(filePath, "utf8"));
-      assert.deepEqual(doc.folders, [
-        { path: "api", name: "api" },
-        { path: "web", name: "web" },
-      ]);
+      for (const name of ["api", "web", "legacy"]) {
+        fs.mkdirSync(path.join(tmp, name, ".git"), { recursive: true });
+      }
+
+      syncScmSettings(["api", "web"], tmp);
+      const settings = JSON.parse(fs.readFileSync(scmSettingsPath(tmp), "utf8"));
+
+      assert.equal(settings["git.autoRepositoryDetection"], "subfolders");
+      assert.equal(settings["git.repositoryScanMaxDepth"], 1);
+      assert.equal(settings["git.ignoredRepositories"].length, 1);
+      assert.ok(
+        settings["git.ignoredRepositories"][0].replace(/\\/g, "/").endsWith("/legacy"),
+      );
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
   });
 
-  it("mescla sem duplicar pastas existentes", () => {
+  it("preserva outras chaves do settings.json", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "repo-ws-merge-"));
     try {
-      syncWorkspaceFile(["api"], tmp);
-      syncWorkspaceFile(["api", "web"], tmp);
-      const doc = JSON.parse(
-        fs.readFileSync(path.join(tmp, WORKSPACE_FILENAME), "utf8"),
+      fs.mkdirSync(path.join(tmp, "api", ".git"), { recursive: true });
+      fs.mkdirSync(path.join(tmp, ".vscode"), { recursive: true });
+      fs.writeFileSync(
+        scmSettingsPath(tmp),
+        JSON.stringify({ "editor.tabSize": 4 }),
       );
-      assert.equal(doc.folders.length, 2);
+
+      syncScmSettings(["api"], tmp);
+      const settings = JSON.parse(fs.readFileSync(scmSettingsPath(tmp), "utf8"));
+
+      assert.equal(settings["editor.tabSize"], 4);
+      assert.deepEqual(settings["git.ignoredRepositories"], []);
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }

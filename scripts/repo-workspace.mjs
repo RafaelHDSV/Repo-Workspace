@@ -6,7 +6,7 @@
  *   yarn dev [-- api]
  *   yarn test [-- api]
  *   yarn setup [-- api]     → yarn sequencial + yarn dev paralelo (mesma seleção)
- *   yarn open [-- api]      → adiciona repos ao Cursor/VS Code (Source Control)
+ *   yarn open [-- api]      → repos selecionados no Source Control (sem .code-workspace)
  *   yarn switch <branch> [-- --all | -- repo1 repo2]
  *   REPOS_SKIP_PROMPT=1 yarn dev
  *   --root <path> / REPOS_ROOT / --config <file>  (raiz/config externos)
@@ -80,16 +80,17 @@ async function selectPackageRepos(parsed, config, modeLabel, root) {
 /**
  * @param {string[] | null} selected
  * @param {string} root
+ * @param {{ ignore: string[] }} config
  */
-function activateSelected(selected, root) {
+function activateSelected(selected, root, config) {
   if (!selected?.length) return;
-  activateRepos(selected, root);
+  activateRepos(selected, root, { ignore: config.ignore });
 }
 
 async function runInstall(parsed, config, root) {
   const selected = await selectPackageRepos(parsed, config, "install", root);
   if (selected === null) return;
-  activateSelected(selected, root);
+  activateSelected(selected, root, config);
   runYarnInstallSequential(selected, config, root);
 }
 
@@ -102,7 +103,7 @@ async function runParallelScript(parsed, config, scriptName, root) {
   );
   if (selected === null) return;
 
-  activateSelected(selected, root);
+  activateSelected(selected, root, config);
 
   const { withScript, skipped } = filterWithScript(
     selected,
@@ -156,7 +157,7 @@ async function runTests(parsed, config, root) {
 
   if (selected === null) return;
 
-  activateSelected(selected, root);
+  activateSelected(selected, root, config);
 
   const { commands, skipped } = resolveTestCommands(selected, config, root);
   if (skipped.length) {
@@ -174,7 +175,7 @@ async function runSetup(parsed, config, root) {
   const selected = await selectPackageRepos(parsed, config, "setup", root);
   if (selected === null) return;
 
-  activateSelected(selected, root);
+  activateSelected(selected, root, config);
 
   runYarnInstallSequential(selected, config, root);
 
@@ -213,7 +214,9 @@ async function runOpen(parsed, config, root) {
 
   if (selected === null) return;
 
-  const { ok, activated } = activateRepos(selected, root);
+  const { ok, activated } = activateRepos(selected, root, {
+    ignore: config.ignore,
+  });
   if (!ok && activated.length === 0) {
     process.exit(1);
   }
@@ -241,7 +244,7 @@ async function runSwitch(parsed, config, root) {
 
   if (selected === null) return;
 
-  activateSelected(selected, root);
+  activateSelected(selected, root, config);
 
   const result = checkoutRepos({
     branch: parsed.branch,

@@ -1,102 +1,68 @@
 import fs from "node:fs";
-import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { isGitRepo } from "./git.mjs";
+import { discoverGitRepos, isGitRepo } from "./git.mjs";
 
-const EDITOR_CANDIDATES = ["cursor", "code"];
-export const WORKSPACE_FILENAME = "repos.code-workspace";
-
-/**
- * @returns {string | null}
- */
-export function resolveEditorCommand() {
-  const fromEnv = process.env.REPOS_EDITOR?.trim();
-  if (fromEnv) return fromEnv;
-
-  for (const cmd of EDITOR_CANDIDATES) {
-    const probe = spawnSync(cmd, ["--version"], {
-      encoding: "utf8",
-      shell: true,
-      windowsHide: true,
-    });
-    if (probe.status === 0) return cmd;
-  }
-
-  return null;
-}
+const VSCODE_DIR = ".vscode";
+const SETTINGS_FILE = "settings.json";
 
 /**
  * @param {string} root
  * @returns {string}
  */
-export function workspaceFilePath(root) {
-  return path.join(root, WORKSPACE_FILENAME);
+export function scmSettingsPath(root) {
+  return path.join(root, VSCODE_DIR, SETTINGS_FILE);
 }
 
 /**
- * Mescla repos selecionados em repos.code-workspace (paths relativos à raiz).
+ * Configura quais clones git aparecem no Source Control sem criar .code-workspace
+ * nem adicionar pastas ao multi-root do editor.
  *
- * @param {string[]} repos
- * @param {string} root
- * @returns {string} caminho do arquivo
+ * Repos não selecionados entram em git.ignoredRepositories; os selecionados ficam
+ * visíveis via git.autoRepositoryDetection=subfolders.
+ *
+ * @param {string[]} selectedRepos nomes das pastas irmãs
+ * @param {string} root raiz operacional dos clones
+ * @param {string[]} [extraIgnore] pastas ignoradas (mesmo ignore do repos.config)
+ * @returns {string} caminho do settings.json escrito
  */
-export function syncWorkspaceFile(repos, root) {
-  const filePath = workspaceFilePath(root);
-  /** @type {{ folders: { path: string, name?: string }[], settings?: Record<string, unknown> }} */
-  let doc = { folders: [], settings: {} };
+export function syncScmSettings(selectedRepos, root, extraIgnore = []) {
+  const settingsFile = scmSettingsPath(root);
+  fs.mkdirSync(path.dirname(settingsFile), { recursive: true });
 
-  if (fs.existsSync(filePath)) {
+  /** @type {Record<string, unknown>} */
+  let settings = {};
+  if (fs.existsSync(settingsFile)) {
     try {
-      const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
-      if (Array.isArray(parsed.folders)) {
-        doc.folders = parsed.folders;
-      }
-      if (parsed.settings && typeof parsed.settings === "object") {
-        doc.settings = parsed.settings;
-      }
+      settings = JSON.parse(fs.readFileSync(settingsFile, "utf8"));
     } catch {
-      // recria arquivo inválido
+      settings = {};
     }
   }
 
-  const known = new Set(
-    doc.folders.map((folder) =>
-      path.normalize(folder.path).replace(/\\/g, "/"),
-    ),
+  const allGit = discoverGitRepos(root, extraIgnore);
+  const selected = new Set(
+    selectedRepos.filter((name) => isGitRepo(path.join(root, name))),
   );
 
-  for (const name of repos) {
-    const rel = name.replace(/\\/g, "/");
-    if (known.has(rel)) continue;
-    doc.folders.push({ path: rel, name });
-    known.add(rel);
-  }
+  const ignoredRepositories = allGit
+    .filter((name) => !selected.has(name))
+    .map((name) => path.resolve(root, name));
 
-  doc.folders.sort((a, b) => a.path.localeCompare(b.path));
-  fs.writeFileSync(filePath, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
-  return filePath;
+  settings["git.autoRepositoryDetection"] = "subfolders";
+  settings["git.repositoryScanMaxDepth"] = 1;
+  settings["git.ignoredRepositories"] = ignoredRepositories;
+
+  fs.writeFileSync(settingsFile, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
+  return settingsFile;
 }
 
 /**
- * @param {string} editor
- * @param {string} folderPath
- */
-function runEditorAdd(editor, folderPath) {
-  return spawnSync(editor, ["--add", folderPath], {
-    encoding: "utf8",
-    windowsHide: true,
-    shell: process.platform === "win32",
-  });
-}
-
-/**
- * Adiciona repositórios git ao workspace do Cursor/VS Code para Source Control.
- *
  * @param {string[]} repos nomes das pastas irmãs
  * @param {string} root raiz operacional dos clones
+ * @param {{ ignore?: string[] }} [options]
  * @returns {{ ok: boolean, activated: string[], skipped: string[], failed: string[] }}
  */
-export function activateRepos(repos, root) {
+export function activateRepos(repos, root, options = {}) {
   if (process.env.REPOS_SKIP_ACTIVATE === "1") {
     return { ok: true, activated: [], skipped: repos, failed: [] };
   }
@@ -105,8 +71,6 @@ export function activateRepos(repos, root) {
   const activated = [];
   /** @type {string[]} */
   const skipped = [];
-  /** @type {string[]} */
-  const failed = [];
 
   for (const name of repos) {
     const repoPath = path.resolve(root, name);
@@ -119,52 +83,25 @@ export function activateRepos(repos, root) {
   }
 
   if (activated.length === 0) {
-    return { ok: false, activated, skipped, failed };
+    return { ok: false, activated, skipped, failed: [] };
   }
 
-  const workspacePath = syncWorkspaceFile(activated, root);
+  const settingsPath = syncScmSettings(activated, root, options.ignore ?? []);
   console.error(
-    `\n→ Ativando ${activated.length} repositório(s) no Source Control…`,
+    `\n→ Source Control: ${activated.length} repositório(s) visíveis`,
   );
-  console.error(`  Workspace: ${workspacePath}\n`);
-
-  const editor = resolveEditorCommand();
-  if (!editor) {
-    console.error(
-      "Cursor/VS Code não encontrado no PATH. " +
-        "Instale o CLI ou defina REPOS_EDITOR=cursor|code. " +
-        `Abra manualmente: ${workspacePath}`,
-    );
-    return { ok: false, activated, skipped, failed: activated };
-  }
+  console.error(`  ${settingsPath}\n`);
 
   for (const name of activated) {
-    const folderPath = path.resolve(root, name);
-    const result = runEditorAdd(editor, folderPath);
-    const errText = [result.stderr, result.stdout].filter(Boolean).join("").trim();
-
-    if (result.status !== 0) {
-      console.error(
-        `[${name}] falha ao adicionar (${editor} --add): ${errText || `exit ${result.status}`}`,
-      );
-      failed.push(name);
-      continue;
-    }
-
-    console.error(`[${name}] adicionado ao workspace (Source Control)`);
+    console.error(`[${name}] visível no Source Control`);
   }
 
-  if (failed.length > 0) {
+  if (skipped.length > 0) {
     console.error(
-      `\n${failed.length} repo(s) não entraram no workspace. ` +
-        `Tente: ${editor} -r "${workspacePath}"`,
+      `\n${skipped.length} pasta(s) ignorada(s) (sem .git). ` +
+        "Abra a raiz dos clones no Cursor para aplicar as settings.",
     );
   }
 
-  return {
-    ok: failed.length === 0,
-    activated: activated.filter((name) => !failed.includes(name)),
-    skipped,
-    failed,
-  };
+  return { ok: true, activated, skipped, failed: [] };
 }
