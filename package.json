@@ -1,6 +1,6 @@
 {
   "name": "repo-workspace",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "private": true,
   "description": "Centralizador local para instalar dependências, executar desenvolvimento e testes, preparar ambientes e trocar branches em múltiplos repositórios irmãos.",
   "license": "MIT",

@@ -205,7 +205,7 @@ async function runOpen(parsed, config, root) {
     all: parsed.all,
     cliRepos: parsed.cliRepos,
     mode: "open",
-    message: "Quais repositórios adicionar ao Source Control?",
+    message: "Quais repositórios mostrar no Source Control?",
     titleFor: (name) => {
       const current = currentBranchName(path.join(root, name));
       return `${name}  (${current})`;

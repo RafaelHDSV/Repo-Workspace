@@ -59,7 +59,7 @@ Todos os comandos abaixo são executados na **raiz do hub**.
 
 Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:test`, `yarn repos:setup`, `yarn repos:open`.
 
-**Source Control:** `install`, `dev`, `test`, `setup`, `switch` e `open` configuram quais clones git aparecem no Source Control via `.vscode/settings.json` na raiz dos clones (`git.ignoredRepositories` + detecção em subpastas). **Não** cria `.code-workspace` nem adiciona pastas ao multi-root. Use `yarn open` quando quiser só isso. Desative com `REPOS_SKIP_ACTIVATE=1`. A janela do Cursor deve estar aberta na pasta pai dos clones (ex.: `repos/`).
+**Source Control:** `install`, `dev`, `test`, `setup`, `switch` e `open` usam `cursor --add` / `code --add` (e `--remove` nos não selecionados) na **janela ativa** — sem criar `.code-workspace`. Use `yarn open` quando quiser só isso. Desative com `REPOS_SKIP_ACTIVATE=1`; force o editor com `REPOS_EDITOR=cursor|code`. É preciso ter uma janela do Cursor aberta.
 
 ### Raiz e config externos (automação)
 

@@ -178,13 +178,14 @@ export function printHelp() {
   yarn dev                  → yarn dev em paralelo
   yarn test                 → suítes canônicas em paralelo
   yarn setup                → yarn e depois yarn dev (mesma seleção)
-  yarn open                 → repos selecionados no Source Control (via .vscode/settings.json)
+  yarn open                 → repos selecionados no Source Control (cursor --add na janela ativa)
   yarn switch <branch>      → troca de branch nos clones git
   yarn switch <branch> -- --all
   yarn switch <branch> -- core api
 
 Flags comuns: --all, nomes após --, REPOS_SKIP_PROMPT=1
-  REPOS_SKIP_ACTIVATE=1     → não altera .vscode/settings.json do Source Control
+  REPOS_SKIP_ACTIVATE=1     → não chama cursor/code --add|--remove
+  REPOS_EDITOR=cursor|code  → CLI do editor (auto-detecta cursor, depois code)
   --root <path>             → raiz dos clones (default: pasta deste hub)
   --config <file>           → repos.config.json já resolvido
   REPOS_ROOT=<path>         → alternativa a --root
