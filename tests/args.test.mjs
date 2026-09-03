@@ -140,3 +140,39 @@ describe("parseArgs", () => {
     );
   });
 });
+
+describe("flags de open", () => {
+  it("open aceita --only com repos posicionais", () => {
+    const parsed = parseArgs(["node", "x", "open", "--only", "api", "web"]);
+    assert.equal(parsed.mode, "open");
+    assert.equal(parsed.only, true);
+    assert.equal(parsed.reset, false);
+    assert.deepEqual(parsed.cliRepos, ["api", "web"]);
+  });
+
+  it("open aceita --reset", () => {
+    const parsed = parseArgs(["node", "x", "open", "--reset"]);
+    assert.equal(parsed.reset, true);
+    assert.deepEqual(parsed.cliRepos, []);
+  });
+
+  it("open sem flags tem only e reset falsos", () => {
+    const parsed = parseArgs(["node", "x", "open"]);
+    assert.equal(parsed.only, false);
+    assert.equal(parsed.reset, false);
+  });
+
+  it("--only fora de open é erro", () => {
+    assert.throws(
+      () => parseArgs(["node", "x", "dev", "--only", "api"]),
+      /só é válida em open/,
+    );
+  });
+
+  it("--reset fora de open é erro", () => {
+    assert.throws(
+      () => parseArgs(["node", "x", "install", "--reset"]),
+      /só é válida em open/,
+    );
+  });
+});

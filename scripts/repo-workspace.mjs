@@ -6,7 +6,9 @@
  *   yarn dev [-- api]
  *   yarn test [-- api]
  *   yarn setup [-- api]     → yarn sequencial + yarn dev paralelo (mesma seleção)
- *   yarn open [-- api]      → abre 1 arquivo por repo (Source Control via openEditors)
+ *   yarn open [-- api]      → ativa repos no Source Control (marker + scanRepositories)
+ *   yarn run open -- --only api web   → substitui a lista persistida
+ *   yarn run open -- --reset          → zera a lista e remove os markers
  *   yarn switch <branch> [-- --all | -- repo1 repo2]
  *   REPOS_SKIP_PROMPT=1 yarn dev
  *   --root <path> / REPOS_ROOT / --config <file>  (raiz/config externos)
@@ -33,7 +35,7 @@ import {
 } from "./lib/run.mjs";
 import { resolveSelection } from "./lib/select.mjs";
 import { resolveTestCommands } from "./lib/test.mjs";
-import { activateRepos } from "./lib/workspace.mjs";
+import { activateRepos, resetActivation } from "./lib/workspace.mjs";
 import path from "node:path";
 
 /**
@@ -77,9 +79,26 @@ async function selectPackageRepos(parsed, config, modeLabel, root) {
   });
 }
 
+/**
+ * Ativação embutida nos comandos de trabalho: silenciosa e não fatal.
+ * Falha de ativação nunca aborta o comando principal.
+ *
+ * @param {string[]} selected
+ * @param {string} root
+ */
+function activateSilently(selected, root) {
+  try {
+    activateRepos(selected, root, { mode: "merge", verbose: false });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[repos] ativação no Source Control falhou: ${message}`);
+  }
+}
+
 async function runInstall(parsed, config, root) {
   const selected = await selectPackageRepos(parsed, config, "install", root);
   if (selected === null) return;
+  activateSilently(selected, root);
   runYarnInstallSequential(selected, config, root);
 }
 
@@ -91,6 +110,7 @@ async function runParallelScript(parsed, config, scriptName, root) {
     root,
   );
   if (selected === null) return;
+  activateSilently(selected, root);
 
   const { withScript, skipped } = filterWithScript(
     selected,
@@ -143,6 +163,7 @@ async function runTests(parsed, config, root) {
   }
 
   if (selected === null) return;
+  activateSilently(selected, root);
 
   const { commands, skipped } = resolveTestCommands(selected, config, root);
   if (skipped.length) {
@@ -159,6 +180,7 @@ async function runTests(parsed, config, root) {
 async function runSetup(parsed, config, root) {
   const selected = await selectPackageRepos(parsed, config, "setup", root);
   if (selected === null) return;
+  activateSilently(selected, root);
 
   runYarnInstallSequential(selected, config, root);
 
@@ -176,6 +198,19 @@ async function runSetup(parsed, config, root) {
 }
 
 async function runOpen(parsed, config, root) {
+  if (parsed.reset) {
+    const { removed, list, error } = resetActivation(root);
+    if (error) {
+      console.error(`erro: settings não atualizado (${error})`);
+      process.exit(1);
+    }
+    console.error(
+      `→ git.scanRepositories zerado; ${removed} marker(s) removido(s).`,
+    );
+    console.error(`  lista atual: ${list?.join(", ") || "(vazia)"}`);
+    return;
+  }
+
   const discovered = discoverGitRepos(root, config.ignore);
 
   if (discovered.length === 0) {
@@ -197,7 +232,10 @@ async function runOpen(parsed, config, root) {
 
   if (selected === null) return;
 
-  const { ok, activated } = activateRepos(selected, root);
+  const { ok, activated } = activateRepos(selected, root, {
+    mode: parsed.only ? "replace" : "merge",
+    verbose: true,
+  });
   if (!ok && activated.length === 0) {
     process.exit(1);
   }
@@ -224,6 +262,7 @@ async function runSwitch(parsed, config, root) {
   });
 
   if (selected === null) return;
+  activateSilently(selected, root);
 
   const result = checkoutRepos({
     branch: parsed.branch,

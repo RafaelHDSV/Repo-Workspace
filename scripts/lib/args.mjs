@@ -52,7 +52,7 @@ export function extractGlobalFlags(rest) {
  * @param {string[]} argv process.argv
  * @returns
  *   | { help: true, mode?: string }
- *   | { mode: 'install'|'dev'|'test'|'setup', all: boolean, cliRepos: string[], root: string | null, config: string | null }
+ *   | { mode: 'install'|'dev'|'test'|'setup'|'open', all: boolean, cliRepos: string[], only: boolean, reset: boolean, root: string | null, config: string | null }
  *   | { mode: 'switch', branch: string, all: boolean, cliRepos: string[], root: string | null, config: string | null }
  */
 export function parseArgs(argv) {
@@ -88,19 +88,27 @@ export function parseArgs(argv) {
  */
 function parseYarnModeArgs(mode, rest) {
   let all = false;
+  let only = false;
+  let reset = false;
   const repos = [];
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === "--help" || rest[i] === "-h") {
       return { help: true, mode };
     }
     if (rest[i] === "--all") all = true;
-    else if (rest[i] === "--") {
+    else if (rest[i] === "--only" || rest[i] === "--reset") {
+      if (mode !== "open") {
+        throw new Error(`${rest[i]} só é válida em open.`);
+      }
+      if (rest[i] === "--only") only = true;
+      else reset = true;
+    } else if (rest[i] === "--") {
       repos.push(...rest.slice(i + 1));
       break;
     } else if (!rest[i].startsWith("-")) repos.push(rest[i]);
     else throw new Error(`Flag desconhecida: ${rest[i]}`);
   }
-  return { mode, all, cliRepos: repos };
+  return { mode, all, cliRepos: repos, only, reset };
 }
 
 /**
@@ -178,15 +186,17 @@ export function printHelp() {
   yarn dev                  → yarn dev em paralelo
   yarn test                 → suítes canônicas em paralelo
   yarn setup                → yarn e depois yarn dev (mesma seleção)
-  yarn open                 → abre 1 arquivo por repo (Source Control via openEditors)
+  yarn open                 → ativa repos no Source Control (marker + scanRepositories)
+  yarn run open -- --only api web
+  yarn run open -- --reset
   yarn switch <branch>      → troca de branch nos clones git
   yarn switch <branch> -- --all
   yarn switch <branch> -- core api
 
 Flags comuns: --all, nomes após --, REPOS_SKIP_PROMPT=1
-  REPOS_SKIP_ACTIVATE=1     → não abre arquivos no editor
-  REPOS_ACTIVATE_SETTLE_MS  → ms por repo com arquivo em foco (padrão 3000)
-  REPOS_EDITOR=cursor|code  → CLI do editor (auto-detecta cursor, depois code)
+  REPOS_SKIP_ACTIVATE=1     → não ativa nada no Source Control
+  --only                    → (open) substitui a lista em git.scanRepositories
+  --reset                   → (open) zera a lista e remove os markers
   --root <path>             → raiz dos clones (default: pasta deste hub)
   --config <file>           → repos.config.json já resolvido
   REPOS_ROOT=<path>         → alternativa a --root

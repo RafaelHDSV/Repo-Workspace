@@ -1,6 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -42,5 +44,38 @@ describe("smoke CLI", () => {
     const r = run(["install", "--", "__nao_existe__"]);
     assert.notEqual(r.status, 0);
     assert.match(r.stderr, /Pastas desconhecidas|Nenhum repositório/);
+  });
+});
+
+describe("ativação no Source Control", () => {
+  it("open --reset zera a lista sem abrir seleção", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "repo-smoke-reset-"));
+    try {
+      const r = run(["open", "--reset", "--root", tmp]);
+      assert.equal(r.status, 0);
+      assert.match(r.stderr + r.stdout, /scanRepositories/);
+
+      const settings = JSON.parse(
+        fs.readFileSync(path.join(tmp, ".vscode", "settings.json"), "utf8"),
+      );
+      assert.deepEqual(settings["git.scanRepositories"], []);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("--only fora de open falha com mensagem clara", () => {
+    const r = run(["dev", "--only", "api"]);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /só é válida em open/);
+  });
+
+  it("ajuda cita --only, --reset e não cita REPOS_EDITOR", () => {
+    const r = run([]);
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /--only/);
+    assert.match(r.stdout, /--reset/);
+    assert.doesNotMatch(r.stdout, /REPOS_EDITOR/);
+    assert.doesNotMatch(r.stdout, /REPOS_ACTIVATE_SETTLE_MS/);
   });
 });

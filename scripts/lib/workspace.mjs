@@ -1,275 +1,258 @@
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { isGitRepo } from "./git.mjs";
 
-const EDITOR_CANDIDATES = ["cursor", "code"];
-
-const PREFERRED_FILES = [
-  "package.json",
-  "README.md",
-  "readme.md",
-  "Readme.md",
-  ".gitignore",
-  "LICENSE",
-  "yarn.lock",
-  "package-lock.json",
-];
-
-/** Ms after opening each file before closing (Git precisa registrar o repo). */
-function settleMs() {
-  const raw = process.env.REPOS_ACTIVATE_SETTLE_MS;
-  const n = raw ? Number(raw) : 3000;
-  return Number.isFinite(n) && n >= 0 ? n : 3000;
-}
+/** Nome do arquivo escrito em <repo>/.git/ para disparar o watcher da extensão Git. */
+export const MARKER_NAME = ".repo-workspace-activate";
 
 /**
- * @param {number} ms
+ * União ordenada e sem duplicatas da lista de git.scanRepositories.
+ *
+ * @param {unknown} current valor atual lido do settings.json
+ * @param {string[]} add repositórios a incluir
+ * @param {"merge" | "replace"} [mode]
+ * @returns {string[]}
  */
-export function sleepMs(ms) {
-  if (ms <= 0) return;
-  const buf = new Int32Array(new SharedArrayBuffer(4));
-  Atomics.wait(buf, 0, 0, ms);
-}
+export function resolveScanRepositories(current, add, mode = "merge") {
+  const base = mode === "replace" || !Array.isArray(current) ? [] : current;
+  /** @type {Set<string>} */
+  const out = new Set();
 
-/**
- * @returns {string | null}
- */
-export function resolveEditorCommand() {
-  const fromEnv = process.env.REPOS_EDITOR?.trim();
-  if (fromEnv) return fromEnv;
-
-  for (const cmd of EDITOR_CANDIDATES) {
-    const probe = spawnSync(cmd, ["--version"], {
-      encoding: "utf8",
-      shell: true,
-      windowsHide: true,
-    });
-    if (probe.status === 0) return cmd;
+  for (const value of [...base, ...add]) {
+    if (typeof value !== "string") continue;
+    const name = value.trim().replace(/[\\/]+$/, "");
+    if (name) out.add(name);
   }
 
-  return null;
+  return [...out].sort((a, b) => a.localeCompare(b));
 }
 
 /**
- * @param {string} repoPath
- * @returns {string | null}
- */
-export function pickRepoFile(repoPath) {
-  for (const name of PREFERRED_FILES) {
-    const candidate = path.join(repoPath, name);
-    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
-      return candidate;
-    }
-  }
-
-  try {
-    const entries = fs.readdirSync(repoPath, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isFile()) continue;
-      if (entry.name.startsWith(".") && entry.name !== ".gitignore") continue;
-      return path.join(repoPath, entry.name);
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
-/**
+ * Grava a seleção em <root>/.vscode/settings.json.
+ *
+ * As três chaves juntas fazem a extensão Git registrar exatamente os
+ * repositórios da lista em toda abertura da janela: maxDepth 0 faz o
+ * traverse retornar vazio, e scanRepositories só é lido quando
+ * autoRepositoryDetection é true ou "subFolders".
+ *
  * @param {string} root
+ * @param {string[]} repos
+ * @param {"merge" | "replace"} [mode]
+ * @returns {{ path: string, list: string[] | null, error: string | null }}
  */
-function ensureOpenEditorsGitDetection(root) {
+export function persistScanRepositories(root, repos, mode = "merge") {
   const settingsPath = path.join(root, ".vscode", "settings.json");
-  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
 
   /** @type {Record<string, unknown>} */
   let settings = {};
+
   if (fs.existsSync(settingsPath)) {
+    let parsed;
     try {
-      settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      parsed = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
     } catch {
-      settings = {};
+      return {
+        path: settingsPath,
+        list: null,
+        error: "JSON inválido (comentários não são suportados aqui)",
+      };
     }
-  }
-
-  settings["git.autoRepositoryDetection"] = "openEditors";
-  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
-}
-
-/**
- * Fecha a aba ativa (a que acabamos de abrir).
- * @returns {boolean}
- */
-export function closeActiveEditor() {
-  return closeRecentEditors(1);
-}
-
-/**
- * @param {number} count
- * @returns {boolean}
- */
-export function closeRecentEditors(count) {
-  if (count <= 0) return true;
-
-  if (process.platform === "win32") {
-    const ps = `
-Add-Type -AssemblyName System.Windows.Forms
-Start-Sleep -Milliseconds 150
-1..${count} | ForEach-Object {
-  [System.Windows.Forms.SendKeys]::SendWait('^w')
-  Start-Sleep -Milliseconds 80
-}
-`;
-    const result = spawnSync(
-      "powershell",
-      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps],
-      { encoding: "utf8", windowsHide: true },
-    );
-    return result.status === 0;
-  }
-
-  if (process.platform === "darwin") {
-    const script = `
-tell application "System Events"
-  repeat ${count} times
-    keystroke "w" using command down
-    delay 0.08
-  end repeat
-end tell
-`;
-    const result = spawnSync("osascript", ["-e", script], {
-      encoding: "utf8",
-    });
-    return result.status === 0;
-  }
-
-  const which = spawnSync("sh", ["-c", "command -v xdotool"], {
-    encoding: "utf8",
-  });
-  if (which.status === 0 && which.stdout.trim()) {
-    for (let i = 0; i < count; i++) {
-      spawnSync("xdotool", ["key", "ctrl+w"], { encoding: "utf8" });
-      sleepMs(80);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {
+        path: settingsPath,
+        list: null,
+        error: "o conteúdo não é um objeto JSON",
+      };
     }
-    return true;
+    settings = parsed;
   }
 
-  return false;
+  const list = resolveScanRepositories(
+    settings["git.scanRepositories"],
+    repos,
+    mode,
+  );
+
+  settings["git.autoRepositoryDetection"] = true;
+  settings["git.repositoryScanMaxDepth"] = 0;
+  settings["git.scanRepositories"] = list;
+
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  fs.writeFileSync(
+    settingsPath,
+    `${JSON.stringify(settings, null, 2)}\n`,
+    "utf8",
+  );
+
+  return { path: settingsPath, list, error: null };
 }
 
 /**
- * Um repo por vez: abre arquivo → espera SCM → fecha aba.
- * Em lote o Git só dava tempo de registrar ~3 de 8.
+ * Escreve o marker em <repo>/.git/ para cada repositório.
+ *
+ * O watcher "**" da extensão Git filtra eventos cujo path contém "/.git" e
+ * chama openRepository na raiz correspondente. Escrever basta: apagar na
+ * mesma execução faz o watcher coalescer o par create/delete e nada é
+ * emitido. A limpeza fica para cleanStaleMarkers, na execução seguinte.
  *
  * @param {string[]} repos
  * @param {string} root
- * @returns {{ ok: boolean, activated: string[], skipped: string[], failed: string[] }}
+ * @returns {{ probed: string[], failed: string[] }}
  */
-export function activateRepos(repos, root) {
-  if (process.env.REPOS_SKIP_ACTIVATE === "1") {
-    return { ok: true, activated: [], skipped: repos, failed: [] };
-  }
-
+export function probeRepos(repos, root) {
   /** @type {string[]} */
-  const activated = [];
-  /** @type {string[]} */
-  const skipped = [];
+  const probed = [];
   /** @type {string[]} */
   const failed = [];
-  /** @type {{ name: string, file: string }[]} */
-  const queue = [];
 
   for (const name of repos) {
-    const repoPath = path.resolve(root, name);
-    if (!isGitRepo(repoPath)) {
-      console.error(`[${name}] ignorado: não é repositório git`);
-      skipped.push(name);
-      continue;
+    const gitDir = path.join(path.resolve(root, name), ".git");
+    let isDir = false;
+    try {
+      isDir = fs.statSync(gitDir).isDirectory();
+    } catch {
+      isDir = false;
     }
-
-    const filePath = pickRepoFile(repoPath);
-    if (!filePath) {
-      console.error(`[${name}] ignorado: nenhum arquivo na raiz para abrir`);
-      skipped.push(name);
-      continue;
-    }
-
-    queue.push({ name, file: filePath });
-  }
-
-  if (queue.length === 0) {
-    return { ok: false, activated, skipped, failed };
-  }
-
-  const editor = resolveEditorCommand();
-  if (!editor) {
-    console.error(
-      "Cursor/VS Code não encontrado no PATH. " +
-        "Instale o CLI ou defina REPOS_EDITOR=cursor|code.",
-    );
-    return {
-      ok: false,
-      activated,
-      skipped,
-      failed: queue.map((q) => q.name),
-    };
-  }
-
-  ensureOpenEditorsGitDetection(root);
-
-  const waitMs = settleMs();
-  console.error(
-    `\n→ Source Control: ${queue.length} repo(s) — um a um ` +
-      `(abrir com foco → ${waitMs}ms → fechar aba)`,
-  );
-  console.error("  (sem --add / sem .code-workspace)\n");
-
-  for (const { name, file } of queue) {
-    // -g força o arquivo como aba ativa/visível (não só “aberto em background”)
-    const open = spawnSync(editor, ["-r", "-g", `${file}:1`], {
-      encoding: "utf8",
-      windowsHide: true,
-      shell: process.platform === "win32",
-    });
-
-    if (open.status !== 0) {
-      const errText = [open.stderr, open.stdout].filter(Boolean).join("").trim();
-      console.error(
-        `[${name}] falha ao abrir (${editor} -r -g): ${errText || `exit ${open.status}`}`,
-      );
+    if (!isDir) {
       failed.push(name);
       continue;
     }
 
-    console.error(`[${name}] em foco → ${path.basename(file)} (${waitMs}ms)`);
-    sleepMs(waitMs);
-
-    if (!closeActiveEditor()) {
-      console.error(
-        `[${name}] não fechou a aba automaticamente — feche com Ctrl+W`,
+    try {
+      fs.writeFileSync(
+        path.join(gitDir, MARKER_NAME),
+        `${new Date().toISOString()}\n`,
+        "utf8",
       );
-    } else {
-      console.error(`[${name}] aba fechada (repo no Source Control)`);
+      probed.push(name);
+    } catch {
+      failed.push(name);
     }
-
-    activated.push(name);
-    sleepMs(200);
   }
 
-  if (failed.length > 0) {
-    console.error(`\n${failed.length} repo(s) falharam na ativação.`);
-  } else {
+  return { probed, failed };
+}
+
+/**
+ * Remove markers de repositórios que não estão em `keep`.
+ *
+ * @param {string} root
+ * @param {string[]} [keep]
+ * @returns {number} quantidade removida
+ */
+export function cleanStaleMarkers(root, keep = []) {
+  const keepSet = new Set(keep);
+  let removed = 0;
+
+  /** @type {import("node:fs").Dirent[]} */
+  let entries = [];
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() || keepSet.has(entry.name)) continue;
+    const marker = path.join(root, entry.name, ".git", MARKER_NAME);
+    try {
+      if (fs.existsSync(marker)) {
+        fs.rmSync(marker);
+        removed++;
+      }
+    } catch {
+      // marker travado ou sem permissão: irrelevante, segue
+    }
+  }
+
+  return removed;
+}
+
+/**
+ * Ativa repositórios no Source Control do Cursor/VS Code.
+ *
+ * Dois efeitos complementares: a lista em .vscode/settings.json reconstrói a
+ * seleção a cada abertura da janela, e o marker em .git/ registra na janela
+ * que já está aberta, sem esperar reload.
+ *
+ * @param {string[]} repos
+ * @param {string} root
+ * @param {{ mode?: "merge" | "replace", verbose?: boolean }} [opts]
+ * @returns {{ ok: boolean, activated: string[], skipped: string[], failed: string[] }}
+ */
+export function activateRepos(repos, root, opts = {}) {
+  const { mode = "merge", verbose = false } = opts;
+
+  if (process.env.REPOS_SKIP_ACTIVATE === "1") {
+    return { ok: true, activated: [], skipped: [...repos], failed: [] };
+  }
+
+  /** @type {string[]} */
+  const gitRepos = [];
+  /** @type {string[]} */
+  const skipped = [];
+
+  for (const name of repos) {
+    if (isGitRepo(path.resolve(root, name))) gitRepos.push(name);
+    else skipped.push(name);
+  }
+
+  if (verbose && skipped.length > 0) {
+    console.error(`Ignorados (não são repositórios git): ${skipped.join(", ")}`);
+  }
+
+  if (gitRepos.length === 0) {
+    if (verbose) {
+      console.error("Nenhum repositório git para ativar no Source Control.");
+    }
+    return { ok: false, activated: [], skipped, failed: [] };
+  }
+
+  const persisted = persistScanRepositories(root, gitRepos, mode);
+  if (persisted.error) {
     console.error(
-      `\n→ ${activated.length} repositório(s) ativados no Source Control.`,
+      `[repos] ${persisted.path} não foi atualizado: ${persisted.error}. ` +
+        "Corrija o arquivo à mão para a ativação sobreviver ao reload.",
     );
   }
 
+  // Invariante: existe marker exatamente para quem está em git.scanRepositories.
+  // Limpar antes de escrever, e só fora da lista, garante que nenhum marker
+  // seja apagado e recriado no mesmo ciclo.
+  if (persisted.list) cleanStaleMarkers(root, persisted.list);
+
+  const { probed, failed } = probeRepos(gitRepos, root);
+
+  if (verbose) {
+    console.error(
+      `\n→ Source Control: ${probed.length} repositório(s) ativado(s).`,
+    );
+    if (persisted.list) {
+      console.error(
+        `  git.scanRepositories: ${persisted.list.join(", ") || "(vazio)"}`,
+      );
+    }
+    if (failed.length > 0) {
+      console.error(`  falharam: ${failed.join(", ")}`);
+    }
+  }
+
   return {
-    ok: failed.length === 0,
-    activated,
+    ok: failed.length === 0 && !persisted.error,
+    activated: probed,
     skipped,
     failed,
   };
+}
+
+/**
+ * Esvazia git.scanRepositories e remove todos os markers.
+ *
+ * @param {string} root
+ * @returns {{ removed: number, list: string[] | null, error: string | null }}
+ */
+export function resetActivation(root) {
+  const removed = cleanStaleMarkers(root, []);
+  const persisted = persistScanRepositories(root, [], "replace");
+  return { removed, list: persisted.list, error: persisted.error };
 }

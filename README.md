@@ -52,14 +52,27 @@ Todos os comandos abaixo são executados na **raiz do hub**.
 | Subir `yarn dev` em paralelo **com menu** | `yarn dev` |
 | Rodar as suítes canônicas em paralelo **com menu** | `yarn test` |
 | Instalar e depois subir `dev` (mesma seleção) | `yarn setup` |
-| Adicionar repos ao Source Control (Cursor/VS Code) | `yarn open` |
+| Ativar repos no Source Control (Cursor/VS Code) | `yarn open` |
 | Trocar de branch nos clones git | `yarn switch <branch>` |
 | Nomes explícitos (qualquer modo yarn) | `yarn run install -- -- api web` ou `yarn test -- api web` |
 | Switch sem menu | `yarn switch main -- core api` ou `yarn switch production -- --all` |
 
 Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:test`, `yarn repos:setup`, `yarn repos:open`.
 
-**Source Control (`yarn open` apenas):** um arquivo por vez com foco (`cursor -r -g` → espera 3000ms → Ctrl+W). Não roda em `install` / `dev` / `test` / `setup` / `switch`. Ajuste com `REPOS_ACTIVATE_SETTLE_MS`. Desative com `REPOS_SKIP_ACTIVATE=1`.
+**Source Control (Cursor/VS Code):** a ativação roda em `yarn open` e também embutida em `install`, `dev`, `test`, `setup` e `switch` — nesses, silenciosa e não fatal. São dois efeitos: um marker em `<repo>/.git/.repo-workspace-activate` registra o repositório na janela já aberta, e `git.scanRepositories` em `.vscode/settings.json` da raiz reconstrói a seleção a cada abertura do editor. O tool grava também `git.autoRepositoryDetection: true` e `git.repositoryScanMaxDepth: 0`, que juntas fazem o editor registrar exatamente a lista, sem varrer todas as subpastas.
+
+A lista acumula. `yarn run open -- --only api web` substitui a lista pelos repos informados; `yarn run open -- --reset` zera a lista e remove os markers. `REPOS_SKIP_ACTIVATE=1` desliga a ativação, inclusive a embutida.
+
+O marker é um arquivo desconhecido na raiz do `.git`: o git o ignora e ele não aparece em `git status`. Ele sobrevive ao fim do comando de propósito — apagar na mesma execução faz o watcher do editor coalescer o par create/delete e nada é registrado. A limpeza acontece na execução seguinte, só para repos fora da lista.
+
+Repositórios em pastas ignoradas (`.tools/`, por exemplo) não entram na lista, porque `yarn open` não os descobre. Eles continuam aparecendo quando você abre um arquivo deles, já que `autoRepositoryDetection: true` preserva esse comportamento.
+
+Para conferir o que o editor registrou:
+
+```bash
+grep -o "Opened repository: c:.*" \
+  "$(ls -t ~/AppData/Roaming/Cursor/logs/*/window*/exthost/vscode.git/Git.log | head -1)"
+```
 
 ### Raiz e config externos (automação)
 
