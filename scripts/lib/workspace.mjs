@@ -6,19 +6,19 @@ import { isGitRepo } from "./git.mjs";
 export const MARKER_NAME = ".repo-workspace-activate";
 
 /**
- * União ordenada e sem duplicatas da lista de git.scanRepositories.
+ * Normaliza uma lista de nomes de repositório: descarta o que não é string,
+ * apara espaço e barra final, deduplica e ordena.
  *
- * @param {unknown} current valor atual lido do settings.json
- * @param {string[]} add repositórios a incluir
- * @param {"merge" | "replace"} [mode]
+ * @param {unknown} list
  * @returns {string[]}
  */
-export function resolveScanRepositories(current, add, mode = "merge") {
-  const base = mode === "replace" || !Array.isArray(current) ? [] : current;
+export function normalizeRepoList(list) {
+  if (!Array.isArray(list)) return [];
+
   /** @type {Set<string>} */
   const out = new Set();
 
-  for (const value of [...base, ...add]) {
+  for (const value of list) {
     if (typeof value !== "string") continue;
     const name = value.trim().replace(/[\\/]+$/, "");
     if (name) out.add(name);
@@ -60,6 +60,9 @@ export function readScanRepositories(root) {
 /**
  * Grava a seleção em <root>/.vscode/settings.json.
  *
+ * A lista é substituída, não somada: o Source Control reflete exatamente a
+ * última seleção. O merge acontece no JSON — chaves de terceiros sobrevivem.
+ *
  * As três chaves juntas fazem a extensão Git registrar exatamente os
  * repositórios da lista em toda abertura da janela: maxDepth 0 faz o
  * traverse retornar vazio, e scanRepositories só é lido quando
@@ -67,10 +70,9 @@ export function readScanRepositories(root) {
  *
  * @param {string} root
  * @param {string[]} repos
- * @param {"merge" | "replace"} [mode]
  * @returns {{ path: string, list: string[] | null, error: string | null }}
  */
-export function persistScanRepositories(root, repos, mode = "merge") {
+export function persistScanRepositories(root, repos) {
   const settingsPath = path.join(root, ".vscode", "settings.json");
 
   /** @type {Record<string, unknown>} */
@@ -97,11 +99,7 @@ export function persistScanRepositories(root, repos, mode = "merge") {
     settings = parsed;
   }
 
-  const list = resolveScanRepositories(
-    settings["git.scanRepositories"],
-    repos,
-    mode,
-  );
+  const list = normalizeRepoList(repos);
 
   settings["git.autoRepositoryDetection"] = true;
   settings["git.repositoryScanMaxDepth"] = 0;
@@ -205,17 +203,16 @@ export function cleanStaleMarkers(root, keep = []) {
  * seleção a cada abertura da janela, e o marker em .git/ registra na janela
  * que já está aberta, sem esperar reload.
  *
+ * A lista é substituída. Chamar com [] é a forma de esvaziar o Source
+ * Control: zera a lista e remove todos os markers.
+ *
  * @param {string[]} repos
  * @param {string} root
- * @param {{ mode?: "merge" | "replace", verbose?: boolean }} [opts]
+ * @param {{ verbose?: boolean }} [opts]
  * @returns {{ ok: boolean, activated: string[], skipped: string[], failed: string[] }}
  */
 export function activateRepos(repos, root, opts = {}) {
-  const { mode = "merge", verbose = false } = opts;
-
-  if (process.env.REPOS_SKIP_ACTIVATE === "1") {
-    return { ok: true, activated: [], skipped: [...repos], failed: [] };
-  }
+  const { verbose = false } = opts;
 
   /** @type {string[]} */
   const gitRepos = [];
@@ -231,14 +228,11 @@ export function activateRepos(repos, root, opts = {}) {
     console.error(`Ignorados (não são repositórios git): ${skipped.join(", ")}`);
   }
 
-  if (gitRepos.length === 0) {
-    if (verbose) {
-      console.error("Nenhum repositório git para ativar no Source Control.");
-    }
-    return { ok: false, activated: [], skipped, failed: [] };
+  if (verbose && repos.length > 0 && gitRepos.length === 0) {
+    console.error("Nenhum repositório git para ativar no Source Control.");
   }
 
-  const persisted = persistScanRepositories(root, gitRepos, mode);
+  const persisted = persistScanRepositories(root, gitRepos);
   if (persisted.error) {
     console.error(
       `[repos] ${persisted.path} não foi atualizado: ${persisted.error}. ` +
@@ -246,9 +240,9 @@ export function activateRepos(repos, root, opts = {}) {
     );
   }
 
-  // Invariante: existe marker exatamente para quem está em git.scanRepositories.
-  // Limpar antes de escrever, e só fora da lista, garante que nenhum marker
-  // seja apagado e recriado no mesmo ciclo.
+  // Invariante: existe marker exatamente para quem está em
+  // git.scanRepositories. Limpar antes de escrever, e só fora da lista,
+  // garante que nenhum marker seja apagado e recriado no mesmo ciclo.
   if (persisted.list) cleanStaleMarkers(root, persisted.list);
 
   const { probed, failed } = probeRepos(gitRepos, root);
@@ -273,16 +267,4 @@ export function activateRepos(repos, root, opts = {}) {
     skipped,
     failed,
   };
-}
-
-/**
- * Esvazia git.scanRepositories e remove todos os markers.
- *
- * @param {string} root
- * @returns {{ removed: number, list: string[] | null, error: string | null }}
- */
-export function resetActivation(root) {
-  const removed = cleanStaleMarkers(root, []);
-  const persisted = persistScanRepositories(root, [], "replace");
-  return { removed, list: persisted.list, error: persisted.error };
 }

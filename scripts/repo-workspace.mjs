@@ -35,7 +35,7 @@ import {
 } from "./lib/run.mjs";
 import { resolveSelection } from "./lib/select.mjs";
 import { resolveTestCommands } from "./lib/test.mjs";
-import { activateRepos, resetActivation } from "./lib/workspace.mjs";
+import { activateRepos } from "./lib/workspace.mjs";
 import path from "node:path";
 
 /**
@@ -179,15 +179,8 @@ async function runSetup(parsed, config, root) {
 
 async function runOpen(parsed, config, root) {
   if (parsed.reset) {
-    const { removed, list, error } = resetActivation(root);
-    if (error) {
-      console.error(`erro: settings não atualizado (${error})`);
-      process.exit(1);
-    }
-    console.error(
-      `→ git.scanRepositories zerado; ${removed} marker(s) removido(s).`,
-    );
-    console.error(`  lista atual: ${list?.join(", ") || "(vazia)"}`);
+    const { ok } = activateRepos([], root, { verbose: true });
+    if (!ok) process.exit(1);
     return;
   }
 
@@ -212,10 +205,7 @@ async function runOpen(parsed, config, root) {
 
   if (selected === null) return;
 
-  const { ok, activated } = activateRepos(selected, root, {
-    mode: parsed.only ? "replace" : "merge",
-    verbose: true,
-  });
+  const { ok, activated } = activateRepos(selected, root, { verbose: true });
   if (!ok && activated.length === 0) {
     process.exit(1);
   }

@@ -7,11 +7,10 @@ import {
   activateRepos,
   cleanStaleMarkers,
   MARKER_NAME,
+  normalizeRepoList,
   persistScanRepositories,
   probeRepos,
   readScanRepositories,
-  resetActivation,
-  resolveScanRepositories,
 } from "../scripts/lib/workspace.mjs";
 
 function tmpRoot(prefix) {
@@ -30,37 +29,33 @@ describe("MARKER_NAME", () => {
   });
 });
 
-describe("resolveScanRepositories", () => {
-  it("soma à lista existente, sem duplicar, em ordem", () => {
-    assert.deepEqual(
-      resolveScanRepositories(["web", "api"], ["core", "api"]),
-      ["api", "core", "web"],
-    );
+describe("normalizeRepoList", () => {
+  it("deduplica e ordena", () => {
+    assert.deepEqual(normalizeRepoList(["web", "api", "api"]), [
+      "api",
+      "web",
+    ]);
   });
 
-  it("modo replace descarta a lista atual", () => {
-    assert.deepEqual(
-      resolveScanRepositories(["web", "api"], ["core"], "replace"),
-      ["core"],
-    );
+  it("lista vazia continua vazia", () => {
+    assert.deepEqual(normalizeRepoList([]), []);
   });
 
-  it("replace com lista vazia zera", () => {
-    assert.deepEqual(resolveScanRepositories(["web"], [], "replace"), []);
-  });
-
-  it("tolera valor atual ausente ou de tipo errado", () => {
-    assert.deepEqual(resolveScanRepositories(undefined, ["api"]), ["api"]);
-    assert.deepEqual(resolveScanRepositories("api", ["web"]), ["web"]);
-    assert.deepEqual(resolveScanRepositories([1, null, "api"], []), ["api"]);
+  it("descarta valores que não são string e strings vazias", () => {
+    assert.deepEqual(normalizeRepoList([1, null, "api", "", "   "]), ["api"]);
   });
 
   it("normaliza espaço e barra final", () => {
-    assert.deepEqual(resolveScanRepositories([], ["  api  ", "web/"]), ["api", "web"]);
+    assert.deepEqual(normalizeRepoList(["  api  ", "web/", "core\\"]), [
+      "api",
+      "core",
+      "web",
+    ]);
   });
 
-  it("descarta entradas vazias", () => {
-    assert.deepEqual(resolveScanRepositories([], ["", "   ", "api"]), ["api"]);
+  it("tolera entrada que não é array", () => {
+    assert.deepEqual(normalizeRepoList(undefined), []);
+    assert.deepEqual(normalizeRepoList("api"), []);
   });
 });
 
@@ -157,7 +152,7 @@ describe("persistScanRepositories", () => {
     }
   });
 
-  it("preserva chaves de terceiros e soma à lista existente", () => {
+  it("preserva chaves de terceiros e substitui a lista existente", () => {
     const root = tmpRoot("repo-persist2-");
     try {
       fs.mkdirSync(path.join(root, ".vscode"), { recursive: true });
@@ -178,17 +173,17 @@ describe("persistScanRepositories", () => {
 
       const settings = readSettings(root);
       assert.equal(settings["editor.tabSize"], 4);
-      assert.deepEqual(settings["git.scanRepositories"], ["api", "web"]);
+      assert.deepEqual(settings["git.scanRepositories"], ["api"]);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
 
-  it("modo replace substitui a lista", () => {
+  it("substitui a lista em vez de somar entre chamadas", () => {
     const root = tmpRoot("repo-persist3-");
     try {
       persistScanRepositories(root, ["web", "api"]);
-      const result = persistScanRepositories(root, ["core"], "replace");
+      const result = persistScanRepositories(root, ["core"]);
       assert.deepEqual(result.list, ["core"]);
       assert.deepEqual(readSettings(root)["git.scanRepositories"], ["core"]);
     } finally {
@@ -333,25 +328,6 @@ describe("cleanStaleMarkers", () => {
 });
 
 describe("activateRepos", () => {
-  it("respeita REPOS_SKIP_ACTIVATE", () => {
-    const root = tmpRoot("repo-act-skip-");
-    const prev = process.env.REPOS_SKIP_ACTIVATE;
-    process.env.REPOS_SKIP_ACTIVATE = "1";
-    try {
-      fakeRepo(root, "api");
-      const result = activateRepos(["api"], root);
-      assert.equal(result.ok, true);
-      assert.deepEqual(result.activated, []);
-      assert.deepEqual(result.skipped, ["api"]);
-      assert.ok(!fs.existsSync(markerPath(root, "api")));
-      assert.ok(!fs.existsSync(path.join(root, ".vscode", "settings.json")));
-    } finally {
-      if (prev === undefined) delete process.env.REPOS_SKIP_ACTIVATE;
-      else process.env.REPOS_SKIP_ACTIVATE = prev;
-      fs.rmSync(root, { recursive: true, force: true });
-    }
-  });
-
   it("grava settings e marker para os repos git", () => {
     const root = tmpRoot("repo-act-");
     try {
@@ -385,65 +361,78 @@ describe("activateRepos", () => {
     }
   });
 
-  it("acumula entre chamadas em modo merge", () => {
-    const root = tmpRoot("repo-act3-");
-    try {
-      fakeRepo(root, "api");
-      fakeRepo(root, "web");
-      activateRepos(["api"], root);
-      activateRepos(["web"], root);
-      assert.deepEqual(readSettings(root)["git.scanRepositories"], ["api", "web"]);
-      assert.ok(fs.existsSync(markerPath(root, "api")));
-      assert.ok(fs.existsSync(markerPath(root, "web")));
-    } finally {
-      fs.rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  it("modo replace troca a lista e limpa o marker do repo que saiu", () => {
-    const root = tmpRoot("repo-act4-");
-    try {
-      fakeRepo(root, "api");
-      fakeRepo(root, "web");
-      activateRepos(["api"], root);
-      activateRepos(["web"], root, { mode: "replace" });
-
-      assert.deepEqual(readSettings(root)["git.scanRepositories"], ["web"]);
-      assert.ok(!fs.existsSync(markerPath(root, "api")));
-      assert.ok(fs.existsSync(markerPath(root, "web")));
-    } finally {
-      fs.rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  it("nenhum repo git: ok falso, sem escrever settings", () => {
+  it("nenhum repo git na lista: ok verdadeiro, settings com lista vazia", () => {
     const root = tmpRoot("repo-act5-");
     try {
       fs.mkdirSync(path.join(root, "docs"), { recursive: true });
       const result = activateRepos(["docs"], root);
-      assert.equal(result.ok, false);
-      assert.ok(!fs.existsSync(path.join(root, ".vscode", "settings.json")));
+      assert.equal(result.ok, true);
+      assert.deepEqual(result.activated, []);
+      assert.deepEqual(result.skipped, ["docs"]);
+      assert.deepEqual(readSettings(root)["git.scanRepositories"], []);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
-});
 
-describe("resetActivation", () => {
-  it("zera a lista e remove todos os markers", () => {
-    const root = tmpRoot("repo-reset-");
+  it("substitui a lista anterior em vez de somar", () => {
+    const root = tmpRoot("repo-act-replace-");
+    try {
+      fakeRepo(root, "api");
+      fakeRepo(root, "web");
+
+      activateRepos(["api", "web"], root);
+      const result = activateRepos(["api"], root);
+
+      assert.equal(result.ok, true);
+      assert.deepEqual(readSettings(root)["git.scanRepositories"], ["api"]);
+      assert.ok(fs.existsSync(markerPath(root, "api")));
+      assert.ok(
+        !fs.existsSync(markerPath(root, "web")),
+        "marker do repo removido da lista deve sair",
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("lista vazia zera a lista e remove todos os markers", () => {
+    const root = tmpRoot("repo-act-empty-");
     try {
       fakeRepo(root, "api");
       fakeRepo(root, "web");
       activateRepos(["api", "web"], root);
 
-      const result = resetActivation(root);
+      const result = activateRepos([], root);
 
-      assert.equal(result.removed, 2);
-      assert.deepEqual(result.list, []);
+      assert.equal(result.ok, true);
+      assert.deepEqual(result.activated, []);
       assert.deepEqual(readSettings(root)["git.scanRepositories"], []);
       assert.ok(!fs.existsSync(markerPath(root, "api")));
       assert.ok(!fs.existsSync(markerPath(root, "web")));
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("preserva chaves de terceiros no settings.json", () => {
+    const root = tmpRoot("repo-act-keys-");
+    try {
+      fakeRepo(root, "api");
+      fs.mkdirSync(path.join(root, ".vscode"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".vscode", "settings.json"),
+        JSON.stringify({ "editor.tabSize": 2 }),
+        "utf8",
+      );
+
+      activateRepos(["api"], root);
+
+      const settings = readSettings(root);
+      assert.equal(settings["editor.tabSize"], 2);
+      assert.equal(settings["git.autoRepositoryDetection"], true);
+      assert.equal(settings["git.repositoryScanMaxDepth"], 0);
+      assert.deepEqual(settings["git.scanRepositories"], ["api"]);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
