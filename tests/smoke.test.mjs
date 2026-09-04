@@ -74,6 +74,7 @@ describe("ativação no Source Control", () => {
     const r = run([]);
     assert.equal(r.status, 0);
     assert.match(r.stdout, /--reset/);
+    assert.match(r.stdout, /substitui a lista/);
     assert.doesNotMatch(r.stdout, /--only/);
     assert.doesNotMatch(r.stdout, /REPOS_SKIP_ACTIVATE/);
     assert.doesNotMatch(r.stdout, /REPOS_EDITOR/);

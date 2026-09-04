@@ -184,7 +184,7 @@ export function printHelp() {
   yarn dev                  → yarn dev em paralelo
   yarn test                 → suítes canônicas em paralelo
   yarn setup                → yarn e depois yarn dev (mesma seleção)
-  yarn open                 → ativa repos no Source Control (marker + scanRepositories)
+  yarn open                 → ativa repos no Source Control (substitui a lista)
   yarn run open -- --reset
   yarn switch <branch>      → troca de branch nos clones git
   yarn switch <branch> -- --all
