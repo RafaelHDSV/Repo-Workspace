@@ -64,17 +64,18 @@ describe("ativação no Source Control", () => {
     }
   });
 
-  it("--only fora de open falha com mensagem clara", () => {
-    const r = run(["dev", "--only", "api"]);
+  it("--only deixou de existir", () => {
+    const r = run(["open", "--only", "api"]);
     assert.notEqual(r.status, 0);
-    assert.match(r.stderr, /só é válida em open/);
+    assert.match(r.stderr, /Flag desconhecida/);
   });
 
-  it("ajuda cita --only, --reset e não cita REPOS_EDITOR", () => {
+  it("ajuda cita --reset e não cita flags nem envs removidas", () => {
     const r = run([]);
     assert.equal(r.status, 0);
-    assert.match(r.stdout, /--only/);
     assert.match(r.stdout, /--reset/);
+    assert.doesNotMatch(r.stdout, /--only/);
+    assert.doesNotMatch(r.stdout, /REPOS_SKIP_ACTIVATE/);
     assert.doesNotMatch(r.stdout, /REPOS_EDITOR/);
     assert.doesNotMatch(r.stdout, /REPOS_ACTIVATE_SETTLE_MS/);
   });
