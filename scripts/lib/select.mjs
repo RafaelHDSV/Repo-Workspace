@@ -21,6 +21,9 @@ export function buildChoices(candidates, titleFor, preselected) {
  * @param {string} message
  * @param {(name: string) => string} [titleFor]
  * @param {{ preselected?: Set<string>, min?: number }} [opts]
+ * @param {typeof prompts} [promptFn] injetável só para teste: o multiselect
+ *   real precisa de TTY, e é este repasse — min e choices pré-marcados —
+ *   que decide se `open` abre marcado e se dá para desmarcar tudo.
  * @returns {Promise<string[]>}
  */
 export async function pickRepos(
@@ -28,10 +31,11 @@ export async function pickRepos(
   message,
   titleFor = (name) => name,
   opts = {},
+  promptFn = prompts,
 ) {
   const { preselected = new Set(), min = 1 } = opts;
 
-  const response = await prompts({
+  const response = await promptFn({
     type: "multiselect",
     name: "repos",
     message,
