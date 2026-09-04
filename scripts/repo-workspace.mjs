@@ -35,7 +35,7 @@ import {
 } from "./lib/run.mjs";
 import { resolveSelection } from "./lib/select.mjs";
 import { resolveTestCommands } from "./lib/test.mjs";
-import { activateRepos } from "./lib/workspace.mjs";
+import { activateRepos, readScanRepositories } from "./lib/workspace.mjs";
 import path from "node:path";
 
 /**
@@ -201,6 +201,8 @@ async function runOpen(parsed, config, root) {
       const current = currentBranchName(path.join(root, name));
       return `${name}  (${current})`;
     },
+    preselected: new Set(readScanRepositories(root)),
+    min: 0,
   });
 
   if (selected === null) return;

@@ -12,7 +12,7 @@
     "install": "node scripts/repo-workspace.mjs install",
     "dev": "node scripts/repo-workspace.mjs dev",
     "test": "node scripts/repo-workspace.mjs test",
-    "test:self": "node --test tests/args.test.mjs tests/config.test.mjs tests/git.test.mjs tests/root.test.mjs tests/run.test.mjs tests/smoke.test.mjs tests/test-command.test.mjs tests/workspace.test.mjs",
+    "test:self": "node --test tests/args.test.mjs tests/config.test.mjs tests/git.test.mjs tests/root.test.mjs tests/run.test.mjs tests/select.test.mjs tests/smoke.test.mjs tests/test-command.test.mjs tests/workspace.test.mjs",
     "setup": "node scripts/repo-workspace.mjs setup",
     "open": "node scripts/repo-workspace.mjs open",
     "switch": "node scripts/repo-workspace.mjs switch",

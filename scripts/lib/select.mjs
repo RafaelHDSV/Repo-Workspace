@@ -1,24 +1,44 @@
 import prompts from "prompts";
 
 /**
+ * Monta os choices do multiselect, marcando os que já estão ativos.
+ *
+ * @param {string[]} candidates
+ * @param {(name: string) => string} titleFor
+ * @param {Set<string>} preselected
+ * @returns {{ title: string, value: string, selected: boolean }[]}
+ */
+export function buildChoices(candidates, titleFor, preselected) {
+  return candidates.map((name) => ({
+    title: titleFor(name),
+    value: name,
+    selected: preselected.has(name),
+  }));
+}
+
+/**
  * @param {string[]} candidates
  * @param {string} message
  * @param {(name: string) => string} [titleFor]
+ * @param {{ preselected?: Set<string>, min?: number }} [opts]
  * @returns {Promise<string[]>}
  */
-export async function pickRepos(candidates, message, titleFor = (name) => name) {
+export async function pickRepos(
+  candidates,
+  message,
+  titleFor = (name) => name,
+  opts = {},
+) {
+  const { preselected = new Set(), min = 1 } = opts;
+
   const response = await prompts({
     type: "multiselect",
     name: "repos",
     message,
-    choices: candidates.map((name) => ({
-      title: titleFor(name),
-      value: name,
-      selected: false,
-    })),
+    choices: buildChoices(candidates, titleFor, preselected),
     hint: "- Barra de espaço alterna. Enter confirma.",
     instructions: false,
-    min: 1,
+    min,
   });
 
   if (response.repos === undefined) {
@@ -39,6 +59,8 @@ export async function pickRepos(candidates, message, titleFor = (name) => name) 
  *   titleFor?: (name: string) => string,
  *   skipPromptEnv?: string,
  *   allowInstallSkipWithoutTty?: boolean,
+ *   preselected?: Set<string>,
+ *   min?: number,
  * }} options
  * @returns {Promise<string[] | null>} null = saída antecipada sem erro (ex.: install sem TTY)
  */
@@ -51,6 +73,8 @@ export async function resolveSelection({
   titleFor,
   skipPromptEnv = process.env.REPOS_SKIP_PROMPT,
   allowInstallSkipWithoutTty = false,
+  preselected = new Set(),
+  min = 1,
 }) {
   const skipPrompt = skipPromptEnv === "1";
   const tty = process.stdin.isTTY;
@@ -91,5 +115,5 @@ export async function resolveSelection({
     return [...discovered];
   }
 
-  return pickRepos(discovered, message, titleFor);
+  return pickRepos(discovered, message, titleFor, { preselected, min });
 }
