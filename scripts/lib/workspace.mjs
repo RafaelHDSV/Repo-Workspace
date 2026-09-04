@@ -250,7 +250,8 @@ export function activateRepos(repos, root, opts = {}) {
   // Invariante: existe marker exatamente para quem está em
   // git.scanRepositories. Limpar antes de escrever, e só fora da lista,
   // garante que nenhum marker seja apagado e recriado no mesmo ciclo.
-  if (persisted.list) cleanStaleMarkers(root, persisted.list);
+  let removedMarkers = 0;
+  if (persisted.list) removedMarkers = cleanStaleMarkers(root, persisted.list);
 
   const { probed, failed } = probeRepos(gitRepos, root);
 
@@ -261,6 +262,11 @@ export function activateRepos(repos, root, opts = {}) {
     if (persisted.list) {
       console.error(
         `  git.scanRepositories: ${persisted.list.join(", ") || "(vazio)"}`,
+      );
+    }
+    if (removedMarkers > 0) {
+      console.error(
+        `  ${removedMarkers} marker(s) removido(s); o painel só reflete a remoção após recarregar a janela (Developer: Reload Window).`,
       );
     }
     if (failed.length > 0) {

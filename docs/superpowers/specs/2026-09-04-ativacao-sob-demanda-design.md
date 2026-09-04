@@ -17,6 +17,7 @@ O comportamento desejado já estava implementado, mas atrás de `yarn run open -
 1. **`replace` é o único modo.** `yarn open` grava exatamente a seleção.
 2. **A ativação embutida sai** de `install`, `dev`, `test`, `setup` e `switch`. Só `open` toca no Source Control.
 3. **O multiselect abre pré-marcado** com a lista ativa, para que substituir não obrigue a remontar a seleção de memória.
+4. **Duas destas decisões foram amendadas durante a implementação.** O guard de `gitRepos.length === 0` foi restrito em vez de cair por inteiro: removê-lo de vez deixava uma lista não vazia de nomes que não são repositórios git esvaziar o painel e ainda reportar sucesso, então o guard passou a mirar exatamente esse caso (`repos.length > 0 && gitRepos.length === 0`), preservando lista vazia como resultado legítimo. E `activateRepos` passou a retornar cedo quando `persistScanRepositories` falha, sem chamar o probe: escrever markers com a persistência falha deixava a lista e os markers fora de sincronia, o oposto da invariante que este documento descreve.
 
 ## Arquitetura
 
@@ -48,7 +49,7 @@ normalizeRepoList(list) → string[]
 
 Com replace-only, `activateRepos([], root)` já significa "lista vazia e nenhum marker": `persistScanRepositories(root, [])` grava a lista vazia e `cleanStaleMarkers(root, [])` remove todos os markers. A função dedicada deixa de existir.
 
-Para isso, o guard atual que retorna `{ ok: false }` quando `gitRepos.length === 0` precisa cair. Lista vazia passa a ser resultado legítimo, não erro. O aviso "Nenhum repositório git para ativar" continua, em modo verboso, apenas quando `repos` não era vazio e todos foram descartados por não serem repositórios git.
+Para isso, o guard que retornava `{ ok: false }` sempre que `gitRepos.length === 0` foi restrito, não removido: passa a disparar só quando `repos.length > 0 && gitRepos.length === 0`, ou seja, pedido não vazio que não resolve para nenhum repositório git. Lista vazia continua sendo resultado legítimo e segue adiante sem cair no guard. O aviso "Nenhum repositório git para ativar" continua, em modo verboso, apenas quando `repos` não era vazio e todos foram descartados por não serem repositórios git.
 
 ### Ordem das operações
 
@@ -109,7 +110,7 @@ Não há passo manual. No primeiro `yarn open` depois da mudança, o menu abre c
 ## Erros e casos de borda
 
 - **Seleção vazia confirmada no menu**: resultado válido. Lista zerada, markers removidos, saída verbosa informando `(vazio)`.
-- **`.vscode/settings.json` inválido**: `readScanRepositories` devolve lista vazia (menu sem pré-marcação) e `persistScanRepositories` avisa e aborta só a persistência, preservando o arquivo. O probe segue.
+- **`.vscode/settings.json` inválido**: `readScanRepositories` devolve lista vazia (menu sem pré-marcação) e `persistScanRepositories` avisa e aborta só a persistência, preservando o arquivo. `activateRepos` retorna nesse ponto — o probe não roda, nenhum marker é escrito, e nada é atualizado: preferível a lista e os markers ficarem parados no estado anterior do que os dois efeitos saírem de sincronia.
 - **Pasta sem `.git`** entre os selecionados: entra em `skipped`, sem erro — inalterado.
 - **Editor fechado**: o probe não tem watcher escutando. Não é erro; a lista persistida resolve na próxima abertura — inalterado.
 - **Repositórios em pastas ignoradas** (`.tools/`): continuam fora da lista, e continuam aparecendo ao abrir um arquivo deles, porque `git.autoRepositoryDetection: true` preserva o comportamento de `openEditors`.

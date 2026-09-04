@@ -61,11 +61,13 @@ Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:test`, `yarn r
 
 **Source Control (Cursor/VS Code):** a ativação roda **só** em `yarn open` — `install`, `dev`, `test`, `setup` e `switch` não tocam no painel. São dois efeitos: um marker em `<repo>/.git/.repo-workspace-activate` registra o repositório na janela já aberta, e `git.scanRepositories` em `.vscode/settings.json` da raiz reconstrói a seleção a cada abertura do editor. O tool grava também `git.autoRepositoryDetection: true` e `git.repositoryScanMaxDepth: 0`, que juntas fazem o editor registrar exatamente a lista, sem varrer todas as subpastas.
 
-A lista é **substituída** a cada `yarn open`: o Source Control mostra exatamente a última seleção. O multiselect abre com os repositórios ativos já marcados, então adicionar um é marcar mais um e confirmar. Desmarcar tudo e confirmar esvazia o painel; `yarn run open -- --reset` faz o mesmo sem abrir o menu, para uso não interativo.
+A lista é **substituída** a cada `yarn open`: o Source Control mostra exatamente a última seleção. O multiselect abre com os repositórios ativos já marcados, então adicionar um é marcar mais um e confirmar. Repositórios adicionados aparecem na hora, porque o marker dispara o watcher da extensão Git na janela já aberta; os removidos só somem do painel depois de recarregar a janela (`Developer: Reload Window`), porque a extensão Git não desregistra repositórios em tempo de execução — ela só relê `git.scanRepositories` na abertura seguinte. Desmarcar tudo e confirmar grava a lista vazia e apaga os markers, mas o painel só esvazia de fato após o reload; `yarn run open -- --reset` faz o mesmo sem abrir o menu, para uso não interativo.
 
 O marker é um arquivo desconhecido na raiz do `.git`: o git o ignora e ele não aparece em `git status`. Ele sobrevive ao fim do comando de propósito — apagar na mesma execução faz o watcher do editor coalescer o par create/delete e nada é registrado. A limpeza acontece no `yarn open` seguinte, para os repositórios que saíram da seleção.
 
-Repositórios em pastas ignoradas (`.tools/`, por exemplo) não entram na lista, porque `yarn open` não os descobre. Eles continuam aparecendo quando você abre um arquivo deles, já que `git.autoRepositoryDetection: true` preserva esse comportamento.
+Se `.vscode/settings.json` tiver JSON inválido ou o conteúdo não for um objeto, `yarn open` não grava nada — nem a lista, nem os markers —, avisa no stderr e sai com código diferente de zero; corrija o arquivo à mão antes de tentar de novo.
+
+Repositórios em pastas ignoradas (`.tools/`, por exemplo) não entram na lista, porque `yarn open` não os descobre. Eles continuam aparecendo quando você abre um arquivo deles, já que `git.autoRepositoryDetection: true` preserva esse comportamento. Qualquer entrada manual em `git.scanRepositories` que não seja um repositório descoberto — um path absoluto adicionado à mão, ou um repositório dentro de uma pasta ignorada — também some na próxima `yarn open`, porque a lista é substituída, não mesclada.
 
 Para conferir o que o editor registrou:
 

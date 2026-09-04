@@ -6,7 +6,7 @@
  *   yarn dev [-- api]
  *   yarn test [-- api]
  *   yarn setup [-- api]     → yarn sequencial + yarn dev paralelo (mesma seleção)
- *   yarn open [-- api]      → ativa repos no Source Control (marker + scanRepositories)
+ *   yarn open [-- api]      → ativa repos no Source Control (substitui a lista)
  *   yarn run open -- --reset          → zera a lista e remove os markers
  *   yarn switch <branch> [-- --all | -- repo1 repo2]
  *   REPOS_SKIP_PROMPT=1 yarn dev

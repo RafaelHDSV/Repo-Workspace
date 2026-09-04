@@ -466,3 +466,51 @@ describe("activateRepos", () => {
     }
   });
 });
+
+describe("activateRepos — aviso verboso de marker removido", () => {
+  it("ao estreitar a seleção, avisa quantos markers saíram e aponta o reload", () => {
+    const root = tmpRoot("repo-act-verbose-remove-");
+    const originalError = console.error;
+    /** @type {string[]} */
+    const lines = [];
+    console.error = (msg) => lines.push(String(msg));
+    try {
+      fakeRepo(root, "api");
+      fakeRepo(root, "web");
+      activateRepos(["api", "web"], root, { verbose: true });
+      lines.length = 0;
+
+      activateRepos(["api"], root, { verbose: true });
+
+      const removalLine = lines.find((line) => line.includes("marker"));
+      assert.ok(removalLine, "deveria avisar sobre marker removido");
+      assert.match(removalLine, /1 marker\(s\) removido\(s\)/);
+      assert.match(removalLine, /reload/i);
+    } finally {
+      console.error = originalError;
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("seleção sem mudança não imprime a linha de remoção", () => {
+    const root = tmpRoot("repo-act-verbose-noop-");
+    const originalError = console.error;
+    /** @type {string[]} */
+    const lines = [];
+    console.error = (msg) => lines.push(String(msg));
+    try {
+      fakeRepo(root, "api");
+      fakeRepo(root, "web");
+      activateRepos(["api", "web"], root, { verbose: true });
+      lines.length = 0;
+
+      activateRepos(["api", "web"], root, { verbose: true });
+
+      const removalLine = lines.find((line) => line.includes("marker"));
+      assert.equal(removalLine, undefined);
+    } finally {
+      console.error = originalError;
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
