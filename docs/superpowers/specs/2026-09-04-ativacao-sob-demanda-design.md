@@ -17,7 +17,7 @@ O comportamento desejado já estava implementado, mas atrás de `yarn run open -
 1. **`replace` é o único modo.** `yarn open` grava exatamente a seleção.
 2. **A ativação embutida sai** de `install`, `dev`, `test`, `setup` e `switch`. Só `open` toca no Source Control.
 3. **O multiselect abre pré-marcado** com a lista ativa, para que substituir não obrigue a remontar a seleção de memória.
-4. **Duas destas decisões foram amendadas durante a implementação.** O guard de `gitRepos.length === 0` foi restrito em vez de cair por inteiro: removê-lo de vez deixava uma lista não vazia de nomes que não são repositórios git esvaziar o painel e ainda reportar sucesso, então o guard passou a mirar exatamente esse caso (`repos.length > 0 && gitRepos.length === 0`), preservando lista vazia como resultado legítimo. E `activateRepos` passou a retornar cedo quando `persistScanRepositories` falha, sem chamar o probe: escrever markers com a persistência falha deixava a lista e os markers fora de sincronia, o oposto da invariante que este documento descreve.
+4. **Duas destas decisões foram emendadas durante a implementação.** O guard de `gitRepos.length === 0` foi restrito em vez de cair por inteiro: removê-lo de vez deixava uma lista não vazia de nomes que não são repositórios git esvaziar o painel e ainda reportar sucesso, então o guard passou a mirar exatamente esse caso (`repos.length > 0 && gitRepos.length === 0`), preservando lista vazia como resultado legítimo. E `activateRepos` passou a retornar cedo quando `persistScanRepositories` falha, sem chamar o probe: escrever markers com a persistência falha deixava a lista e os markers fora de sincronia, o oposto da invariante que este documento descreve.
 
 ## Arquitetura
 
