@@ -232,12 +232,19 @@ export function activateRepos(repos, root, opts = {}) {
     console.error("Nenhum repositório git para ativar no Source Control.");
   }
 
+  // Pedido não vazio que não resolve para nada é engano do chamador:
+  // recusa sem destruir. Lista vazia segue adiante — esvaziar é intencional.
+  if (repos.length > 0 && gitRepos.length === 0) {
+    return { ok: false, activated: [], skipped, failed: [] };
+  }
+
   const persisted = persistScanRepositories(root, gitRepos);
   if (persisted.error) {
     console.error(
       `[repos] ${persisted.path} não foi atualizado: ${persisted.error}. ` +
         "Corrija o arquivo à mão para a ativação sobreviver ao reload.",
     );
+    return { ok: false, activated: [], skipped, failed: [] };
   }
 
   // Invariante: existe marker exatamente para quem está em

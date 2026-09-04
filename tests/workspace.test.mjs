@@ -361,15 +361,43 @@ describe("activateRepos", () => {
     }
   });
 
-  it("nenhum repo git na lista: ok verdadeiro, settings com lista vazia", () => {
+  it("pedido não vazio que não resolve repo git recusa sem destruir nada", () => {
     const root = tmpRoot("repo-act5-");
     try {
+      fakeRepo(root, "api");
       fs.mkdirSync(path.join(root, "docs"), { recursive: true });
+      fs.writeFileSync(markerPath(root, "api"), "x\n", "utf8");
+
       const result = activateRepos(["docs"], root);
-      assert.equal(result.ok, true);
+
+      assert.equal(result.ok, false);
       assert.deepEqual(result.activated, []);
       assert.deepEqual(result.skipped, ["docs"]);
-      assert.deepEqual(readSettings(root)["git.scanRepositories"], []);
+      assert.ok(!fs.existsSync(path.join(root, ".vscode", "settings.json")));
+      assert.ok(
+        fs.existsSync(markerPath(root, "api")),
+        "marker de repo alheio ao pedido não pode ser removido",
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("persistência com erro: nenhum marker é criado e o settings inválido fica intacto", () => {
+    const root = tmpRoot("repo-act-badsettings-");
+    const settingsPath = path.join(root, ".vscode", "settings.json");
+    try {
+      fakeRepo(root, "api");
+      fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+      fs.writeFileSync(settingsPath, '{ "editor.tabSize": 4, // comentário\n', "utf8");
+      const before = fs.readFileSync(settingsPath, "utf8");
+
+      const result = activateRepos(["api"], root);
+
+      assert.equal(result.ok, false);
+      assert.deepEqual(result.activated, []);
+      assert.ok(!fs.existsSync(markerPath(root, "api")));
+      assert.equal(fs.readFileSync(settingsPath, "utf8"), before);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
