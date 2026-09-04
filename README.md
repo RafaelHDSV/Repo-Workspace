@@ -59,13 +59,13 @@ Todos os comandos abaixo são executados na **raiz do hub**.
 
 Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:test`, `yarn repos:setup`, `yarn repos:open`.
 
-**Source Control (Cursor/VS Code):** a ativação roda em `yarn open` e também embutida em `install`, `dev`, `test`, `setup` e `switch` — nesses, silenciosa e não fatal. São dois efeitos: um marker em `<repo>/.git/.repo-workspace-activate` registra o repositório na janela já aberta, e `git.scanRepositories` em `.vscode/settings.json` da raiz reconstrói a seleção a cada abertura do editor. O tool grava também `git.autoRepositoryDetection: true` e `git.repositoryScanMaxDepth: 0`, que juntas fazem o editor registrar exatamente a lista, sem varrer todas as subpastas.
+**Source Control (Cursor/VS Code):** a ativação roda **só** em `yarn open` — `install`, `dev`, `test`, `setup` e `switch` não tocam no painel. São dois efeitos: um marker em `<repo>/.git/.repo-workspace-activate` registra o repositório na janela já aberta, e `git.scanRepositories` em `.vscode/settings.json` da raiz reconstrói a seleção a cada abertura do editor. O tool grava também `git.autoRepositoryDetection: true` e `git.repositoryScanMaxDepth: 0`, que juntas fazem o editor registrar exatamente a lista, sem varrer todas as subpastas.
 
-A lista acumula. `yarn run open -- --only api web` substitui a lista pelos repos informados; `yarn run open -- --reset` zera a lista e remove os markers. `REPOS_SKIP_ACTIVATE=1` desliga a ativação, inclusive a embutida.
+A lista é **substituída** a cada `yarn open`: o Source Control mostra exatamente a última seleção. O multiselect abre com os repositórios ativos já marcados, então adicionar um é marcar mais um e confirmar. Desmarcar tudo e confirmar esvazia o painel; `yarn run open -- --reset` faz o mesmo sem abrir o menu, para uso não interativo.
 
-O marker é um arquivo desconhecido na raiz do `.git`: o git o ignora e ele não aparece em `git status`. Ele sobrevive ao fim do comando de propósito — apagar na mesma execução faz o watcher do editor coalescer o par create/delete e nada é registrado. A limpeza acontece na execução seguinte, só para repos fora da lista.
+O marker é um arquivo desconhecido na raiz do `.git`: o git o ignora e ele não aparece em `git status`. Ele sobrevive ao fim do comando de propósito — apagar na mesma execução faz o watcher do editor coalescer o par create/delete e nada é registrado. A limpeza acontece no `yarn open` seguinte, para os repositórios que saíram da seleção.
 
-Repositórios em pastas ignoradas (`.tools/`, por exemplo) não entram na lista, porque `yarn open` não os descobre. Eles continuam aparecendo quando você abre um arquivo deles, já que `autoRepositoryDetection: true` preserva esse comportamento.
+Repositórios em pastas ignoradas (`.tools/`, por exemplo) não entram na lista, porque `yarn open` não os descobre. Eles continuam aparecendo quando você abre um arquivo deles, já que `git.autoRepositoryDetection: true` preserva esse comportamento.
 
 Para conferir o que o editor registrou:
 
