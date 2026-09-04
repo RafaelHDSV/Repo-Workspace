@@ -68,6 +68,13 @@ export function readScanRepositories(root) {
  * traverse retornar vazio, e scanRepositories só é lido quando
  * autoRepositoryDetection é true ou "subFolders".
  *
+ * A escolha de "subFolders" em vez de true é deliberada. Os dois fazem a
+ * extensão ler scanRepositories, mas true liga também o caminho
+ * onDidChangeVisibleTextEditors, que registra de volta qualquer
+ * repositório cujo arquivo você abrir — desfazendo, na prática, a remoção
+ * que este comando acabou de gravar. "subFolders" preserva a leitura da
+ * lista e o watcher do marker, e desliga só esse re-registro.
+ *
  * @param {string} root
  * @param {string[]} repos
  * @returns {{ path: string, list: string[] | null, error: string | null }}
@@ -101,7 +108,7 @@ export function persistScanRepositories(root, repos) {
 
   const list = normalizeRepoList(repos);
 
-  settings["git.autoRepositoryDetection"] = true;
+  settings["git.autoRepositoryDetection"] = "subFolders";
   settings["git.repositoryScanMaxDepth"] = 0;
   settings["git.scanRepositories"] = list;
 

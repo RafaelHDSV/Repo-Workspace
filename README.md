@@ -59,7 +59,9 @@ Todos os comandos abaixo são executados na **raiz do hub**.
 
 Equivalentes: `yarn repos:install`, `yarn repos:dev`, `yarn repos:test`, `yarn repos:setup`, `yarn repos:open`.
 
-**Source Control (Cursor/VS Code):** a ativação roda **só** em `yarn open` — `install`, `dev`, `test`, `setup` e `switch` não tocam no painel. São dois efeitos: um marker em `<repo>/.git/.repo-workspace-activate` registra o repositório na janela já aberta, e `git.scanRepositories` em `.vscode/settings.json` da raiz reconstrói a seleção a cada abertura do editor. O tool grava também `git.autoRepositoryDetection: true` e `git.repositoryScanMaxDepth: 0`, que juntas fazem o editor registrar exatamente a lista, sem varrer todas as subpastas.
+**Source Control (Cursor/VS Code):** a ativação roda **só** em `yarn open` — `install`, `dev`, `test`, `setup` e `switch` não tocam no painel. São dois efeitos: um marker em `<repo>/.git/.repo-workspace-activate` registra o repositório na janela já aberta, e `git.scanRepositories` em `.vscode/settings.json` da raiz reconstrói a seleção a cada abertura do editor. O tool grava também `git.autoRepositoryDetection: "subFolders"` e `git.repositoryScanMaxDepth: 0`, que juntas fazem o editor registrar exatamente a lista, sem varrer todas as subpastas.
+
+O valor `"subFolders"` é escolhido de propósito no lugar de `true`. Os dois fazem a extensão ler `git.scanRepositories`, mas `true` liga junto o caminho `openEditors`, que registra de volta qualquer repositório cujo arquivo você abrir — desfazendo a remoção que você acabou de gravar. Com `"subFolders"`, um repositório fora da lista continua fora, mesmo com arquivos dele abertos no editor.
 
 A lista é **substituída** a cada `yarn open`: o Source Control mostra exatamente a última seleção. O multiselect abre com os repositórios ativos já marcados, então adicionar um é marcar mais um e confirmar. Repositórios adicionados aparecem na hora, porque o marker dispara o watcher da extensão Git na janela já aberta; os removidos só somem do painel depois de recarregar a janela (`Developer: Reload Window`), porque a extensão Git não desregistra repositórios em tempo de execução — ela só relê `git.scanRepositories` na abertura seguinte. Desmarcar tudo e confirmar grava a lista vazia e apaga os markers, mas o painel só esvazia de fato após o reload; `yarn run open -- --reset` faz o mesmo sem abrir o menu, para uso não interativo.
 
@@ -67,7 +69,7 @@ O marker é um arquivo desconhecido na raiz do `.git`: o git o ignora e ele não
 
 Se `.vscode/settings.json` tiver JSON inválido ou o conteúdo não for um objeto, `yarn open` não grava nada — nem a lista, nem os markers —, avisa no stderr e sai com código diferente de zero; corrija o arquivo à mão antes de tentar de novo.
 
-Repositórios em pastas ignoradas (`.tools/`, por exemplo) não entram na lista, porque `yarn open` não os descobre. Eles continuam aparecendo quando você abre um arquivo deles, já que `git.autoRepositoryDetection: true` preserva esse comportamento. Qualquer entrada manual em `git.scanRepositories` que não seja um repositório descoberto — um path absoluto adicionado à mão, ou um repositório dentro de uma pasta ignorada — também some na próxima `yarn open`, porque a lista é substituída, não mesclada.
+Repositórios em pastas ignoradas (`.tools/`, por exemplo) não entram na lista, porque `yarn open` não os descobre — e, com `"subFolders"`, também não aparecem mais por abrir um arquivo deles. Para ver um no painel, adicione-o à mão em `git.scanRepositories` e recarregue a janela. Mas entrada manual não sobrevive: qualquer nome na lista que não seja um repositório descoberto — um path absoluto, ou um repositório dentro de uma pasta ignorada — some na próxima `yarn open`, porque a lista é substituída, não mesclada.
 
 Para conferir o que o editor registrou:
 

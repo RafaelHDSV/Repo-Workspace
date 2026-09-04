@@ -144,7 +144,7 @@ describe("persistScanRepositories", () => {
       assert.deepEqual(result.list, ["api", "core"]);
 
       const settings = readSettings(root);
-      assert.equal(settings["git.autoRepositoryDetection"], true);
+      assert.equal(settings["git.autoRepositoryDetection"], "subFolders");
       assert.equal(settings["git.repositoryScanMaxDepth"], 0);
       assert.deepEqual(settings["git.scanRepositories"], ["api", "core"]);
     } finally {
@@ -458,7 +458,7 @@ describe("activateRepos", () => {
 
       const settings = readSettings(root);
       assert.equal(settings["editor.tabSize"], 2);
-      assert.equal(settings["git.autoRepositoryDetection"], true);
+      assert.equal(settings["git.autoRepositoryDetection"], "subFolders");
       assert.equal(settings["git.repositoryScanMaxDepth"], 0);
       assert.deepEqual(settings["git.scanRepositories"], ["api"]);
     } finally {
@@ -510,6 +510,27 @@ describe("activateRepos — aviso verboso de marker removido", () => {
       assert.equal(removalLine, undefined);
     } finally {
       console.error = originalError;
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("git.autoRepositoryDetection", () => {
+  it('grava "subFolders", nao true, para nao reabrir repo ao abrir arquivo dele', () => {
+    const root = tmpRoot("repo-detection-");
+    try {
+      fakeRepo(root, "api");
+
+      activateRepos(["api"], root);
+
+      // "subFolders" e true fazem a extensao ler git.scanRepositories, mas
+      // true liga tambem o caminho onDidChangeVisibleTextEditors, que
+      // registra de volta qualquer repositorio cujo arquivo voce abrir --
+      // desfazendo a remocao. "subFolders" preserva a leitura da lista e o
+      // watcher do marker, e desliga so esse re-registro.
+      assert.equal(readSettings(root)["git.autoRepositoryDetection"], "subFolders");
+      assert.equal(readSettings(root)["git.repositoryScanMaxDepth"], 0);
+    } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
   });

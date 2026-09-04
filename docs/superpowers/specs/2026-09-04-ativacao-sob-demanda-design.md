@@ -113,7 +113,23 @@ Não há passo manual. No primeiro `yarn open` depois da mudança, o menu abre c
 - **`.vscode/settings.json` inválido**: `readScanRepositories` devolve lista vazia (menu sem pré-marcação) e `persistScanRepositories` avisa e aborta só a persistência, preservando o arquivo. `activateRepos` retorna nesse ponto — o probe não roda, nenhum marker é escrito, e nada é atualizado: preferível a lista e os markers ficarem parados no estado anterior do que os dois efeitos saírem de sincronia.
 - **Pasta sem `.git`** entre os selecionados: entra em `skipped`, sem erro — inalterado.
 - **Editor fechado**: o probe não tem watcher escutando. Não é erro; a lista persistida resolve na próxima abertura — inalterado.
-- **Repositórios em pastas ignoradas** (`.tools/`): continuam fora da lista, e continuam aparecendo ao abrir um arquivo deles, porque `git.autoRepositoryDetection: true` preserva o comportamento de `openEditors`.
+- **Repositórios em pastas ignoradas** (`.tools/`): continuam fora da lista, e — desde a troca para `"subFolders"` — também não aparecem mais ao abrir um arquivo deles.
+
+## Emenda: `autoRepositoryDetection` passa a ser `"subFolders"`
+
+O documento original mandava gravar `git.autoRepositoryDetection: true` e aceitava o re-registro por `openEditors` como efeito colateral, herdado do spec de 03/09. Sob o modelo acumulativo isso era inofensivo, porque remover nunca acontecia. Sob substituição, é o que faz a remoção parecer quebrada: o repositório sai da lista, e a extensão o registra de volta assim que você abre um arquivo dele.
+
+Os três gates foram conferidos no bundle da extensão (`resources/app/extensions/git/dist/main.js`):
+
+| Mecanismo | Condição no bundle | Com `"subFolders"` |
+|---|---|---|
+| Watcher de `.git` (marker) | `get("autoRepositoryDetection") !== false` | funciona |
+| Leitura de `scanRepositories` | `t !== true && t !== "subFolders" → return` | funciona |
+| Re-registro por editor visível | `i !== true && i !== "openEditors" → return` | desligado |
+
+`"subFolders"` preserva os dois mecanismos de que o tool depende e desliga só o re-registro. Com `repositoryScanMaxDepth: 0` o traverse de subpastas continua devolvendo vazio, então a varredura das 31 pastas não volta.
+
+Continua valendo o que nenhum valor de configuração resolve: a extensão não desregistra repositório em tempo de execução, então tirar um da lista só some do painel após recarregar a janela.
 
 ## Testes
 
