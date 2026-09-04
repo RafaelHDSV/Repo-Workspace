@@ -87,7 +87,7 @@ REPOS_ROOT=/caminho/dos/clones yarn setup
 
 ### Comportamento dos menus
 
-- O multiselect abre com **nada** selecionado — marque com Espaço; Enter confirma.
+- O multiselect abre com **nada** selecionado (exceto em `yarn open`, que pré-marca os repositórios ativos) — marque com Espaço; Enter confirma.
 - **`yarn dev`** e **`yarn setup`** (etapa de dev): repositórios **sem** script `dev` são ignorados, com aviso.
 - **`yarn test`**: mostra somente repositórios com suíte detectada e o comando não interativo que será executado.
 - **`yarn setup`**: seleciona **uma vez**, roda `yarn` sequencialmente em todos os selecionados e, só após sucesso, inicia `yarn dev` em paralelo nos que tiverem script `dev`.
