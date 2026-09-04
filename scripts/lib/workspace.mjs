@@ -28,6 +28,36 @@ export function resolveScanRepositories(current, add, mode = "merge") {
 }
 
 /**
+ * Lê git.scanRepositories de <root>/.vscode/settings.json.
+ *
+ * Nunca lança: arquivo ausente, JSON inválido, conteúdo que não é objeto ou
+ * chave ausente devolvem lista vazia. É insumo de interface — um settings
+ * corrompido degrada o menu para "nada pré-marcado" em vez de derrubar o
+ * comando. O aviso de arquivo inválido é responsabilidade de
+ * persistScanRepositories.
+ *
+ * @param {string} root
+ * @returns {string[]}
+ */
+export function readScanRepositories(root) {
+  const settingsPath = path.join(root, ".vscode", "settings.json");
+
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+  } catch {
+    return [];
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+
+  const list = parsed["git.scanRepositories"];
+  if (!Array.isArray(list)) return [];
+
+  return list.filter((value) => typeof value === "string");
+}
+
+/**
  * Grava a seleção em <root>/.vscode/settings.json.
  *
  * As três chaves juntas fazem a extensão Git registrar exatamente os

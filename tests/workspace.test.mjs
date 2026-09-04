@@ -9,6 +9,7 @@ import {
   MARKER_NAME,
   persistScanRepositories,
   probeRepos,
+  readScanRepositories,
   resetActivation,
   resolveScanRepositories,
 } from "../scripts/lib/workspace.mjs";
@@ -60,6 +61,82 @@ describe("resolveScanRepositories", () => {
 
   it("descarta entradas vazias", () => {
     assert.deepEqual(resolveScanRepositories([], ["", "   ", "api"]), ["api"]);
+  });
+});
+
+describe("readScanRepositories", () => {
+  it("devolve a lista gravada", () => {
+    const root = tmpRoot("repo-read-");
+    try {
+      fs.mkdirSync(path.join(root, ".vscode"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".vscode", "settings.json"),
+        JSON.stringify({ "git.scanRepositories": ["web", "api"] }),
+        "utf8",
+      );
+      assert.deepEqual(readScanRepositories(root), ["web", "api"]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("devolve [] quando o arquivo não existe", () => {
+    const root = tmpRoot("repo-read-none-");
+    try {
+      assert.deepEqual(readScanRepositories(root), []);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("devolve [] com JSON inválido, sem lançar", () => {
+    const root = tmpRoot("repo-read-bad-");
+    try {
+      fs.mkdirSync(path.join(root, ".vscode"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, ".vscode", "settings.json"),
+        "{ // comentário\n }",
+        "utf8",
+      );
+      assert.deepEqual(readScanRepositories(root), []);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("devolve [] quando o conteúdo não é objeto ou a chave falta", () => {
+    const root = tmpRoot("repo-read-shape-");
+    try {
+      const file = path.join(root, ".vscode", "settings.json");
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+
+      fs.writeFileSync(file, '["api"]', "utf8");
+      assert.deepEqual(readScanRepositories(root), []);
+
+      fs.writeFileSync(file, '{ "editor.tabSize": 2 }', "utf8");
+      assert.deepEqual(readScanRepositories(root), []);
+
+      fs.writeFileSync(file, '{ "git.scanRepositories": "api" }', "utf8");
+      assert.deepEqual(readScanRepositories(root), []);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("descarta entradas que não são string", () => {
+    const root = tmpRoot("repo-read-mixed-");
+    try {
+      const file = path.join(root, ".vscode", "settings.json");
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(
+        file,
+        JSON.stringify({ "git.scanRepositories": ["api", 3, null, "web"] }),
+        "utf8",
+      );
+      assert.deepEqual(readScanRepositories(root), ["api", "web"]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 
