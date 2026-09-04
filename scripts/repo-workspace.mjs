@@ -79,26 +79,9 @@ async function selectPackageRepos(parsed, config, modeLabel, root) {
   });
 }
 
-/**
- * Ativação embutida nos comandos de trabalho: silenciosa e não fatal.
- * Falha de ativação nunca aborta o comando principal.
- *
- * @param {string[]} selected
- * @param {string} root
- */
-function activateSilently(selected, root) {
-  try {
-    activateRepos(selected, root, { mode: "merge", verbose: false });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[repos] ativação no Source Control falhou: ${message}`);
-  }
-}
-
 async function runInstall(parsed, config, root) {
   const selected = await selectPackageRepos(parsed, config, "install", root);
   if (selected === null) return;
-  activateSilently(selected, root);
   runYarnInstallSequential(selected, config, root);
 }
 
@@ -110,7 +93,6 @@ async function runParallelScript(parsed, config, scriptName, root) {
     root,
   );
   if (selected === null) return;
-  activateSilently(selected, root);
 
   const { withScript, skipped } = filterWithScript(
     selected,
@@ -163,7 +145,6 @@ async function runTests(parsed, config, root) {
   }
 
   if (selected === null) return;
-  activateSilently(selected, root);
 
   const { commands, skipped } = resolveTestCommands(selected, config, root);
   if (skipped.length) {
@@ -180,7 +161,6 @@ async function runTests(parsed, config, root) {
 async function runSetup(parsed, config, root) {
   const selected = await selectPackageRepos(parsed, config, "setup", root);
   if (selected === null) return;
-  activateSilently(selected, root);
 
   runYarnInstallSequential(selected, config, root);
 
@@ -262,7 +242,6 @@ async function runSwitch(parsed, config, root) {
   });
 
   if (selected === null) return;
-  activateSilently(selected, root);
 
   const result = checkoutRepos({
     branch: parsed.branch,

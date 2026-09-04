@@ -78,4 +78,30 @@ describe("ativação no Source Control", () => {
     assert.doesNotMatch(r.stdout, /REPOS_EDITOR/);
     assert.doesNotMatch(r.stdout, /REPOS_ACTIVATE_SETTLE_MS/);
   });
+
+  it("dev não escreve em .vscode/settings.json", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "repo-smoke-embutida-"));
+    try {
+      // Repositório git com package.json, mas sem script dev: o comando
+      // chega até a filtragem e aborta, depois do ponto onde a ativação
+      // embutida rodava.
+      fs.mkdirSync(path.join(tmp, "api", ".git"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmp, "api", "package.json"),
+        JSON.stringify({ name: "api", scripts: { build: "echo" } }, null, 2),
+        "utf8",
+      );
+
+      const r = run(["dev", "--all", "--root", tmp]);
+
+      assert.notEqual(r.status, 0);
+      assert.match(r.stderr, /script dev/);
+      assert.ok(
+        !fs.existsSync(path.join(tmp, ".vscode", "settings.json")),
+        "dev não deve tocar no Source Control",
+      );
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
 });
