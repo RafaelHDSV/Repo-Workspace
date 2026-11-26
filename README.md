@@ -33,7 +33,7 @@ subpastas irmãs com package.json / deno.json / .git
 install | dev | test | setup | switch | open
 ```
 
-Raiz operacional = pasta do hub ou `--root` / `REPOS_ROOT`. Guia completo (menus, Deno no PATH, Source Control, testes agregados): [`docs/ambiente-e-operacao.md`](docs/ambiente-e-operacao.md).
+Raiz operacional = pasta do hub ou `--root` / `REPOS_ROOT`. Em `yarn dev` (ou na fase `dev` do `yarn setup`), Ctrl+C pergunta se você quer reescolher os repositórios com a última seleção já marcada — sem remarcar tudo do zero. Guia completo (menus, Deno no PATH, Source Control, testes agregados): [`docs/ambiente-e-operacao.md`](docs/ambiente-e-operacao.md).
 
 ## Posicionamento
 

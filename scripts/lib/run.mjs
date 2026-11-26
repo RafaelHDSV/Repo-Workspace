@@ -101,11 +101,21 @@ export function buildParallelCommands(
 }
 
 /**
+ * Detecta Ctrl+C / kill via close events do concurrently (SIGINT remapeia exit 0).
+ * @param {unknown} closeEvents
+ * @returns {boolean}
+ */
+export function wasInterruptedBySignal(closeEvents) {
+  if (!Array.isArray(closeEvents)) return false;
+  return closeEvents.some((event) => event && event.killed === true);
+}
+
+/**
  * @param {Array<{ repo: string, command: string }>} entries
  * @param {{ nodeVersionByRepo: Record<string, string> }} config
  * @param {string} [root]
  * @param {NodeJS.ProcessEnv} [extraEnv]
- * @returns {Promise<void>}
+ * @returns {Promise<{ interrupted: boolean }>}
  */
 export async function runCommandsParallel(
   entries,
@@ -128,7 +138,16 @@ export async function runCommandsParallel(
     prefixColors,
     restartTries: 0,
   });
-  await result;
+
+  try {
+    const events = await result;
+    return { interrupted: wasInterruptedBySignal(events) };
+  } catch (events) {
+    if (wasInterruptedBySignal(events)) {
+      return { interrupted: true };
+    }
+    throw events;
+  }
 }
 
 /**
@@ -136,12 +155,12 @@ export async function runCommandsParallel(
  * @param {string} yarnScript ex.: "dev"
  * @param {{ nodeVersionByRepo: Record<string, string> }} config
  * @param {string} [root]
- * @returns {Promise<void>}
+ * @returns {Promise<{ interrupted: boolean }>}
  */
 export async function runYarnParallel(repos, yarnScript, config, root = ROOT) {
   const entries = repos.map((repo) => ({
     repo,
     command: `yarn ${yarnScript}`,
   }));
-  await runCommandsParallel(entries, config, root);
+  return runCommandsParallel(entries, config, root);
 }

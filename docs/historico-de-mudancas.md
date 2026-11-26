@@ -8,6 +8,11 @@ Use `CHANGELOG.md` na raiz para releases Keep a Changelog. Este arquivo guarda o
 
 ## 2026-11-25
 
+### Reselect após Ctrl+C em dev/setup (issue #2)
+
+- Loop interativo: confirm + multiselect com última seleção confirmada pré-marcada.
+- Escopo só `dev` e fase `dev` do `setup`; sem persistência em disco; setup não reinstala no reselect.
+
 ### Deno no setup/dev (Repo-Workspace#3)
 
 - Descoberta unificada para install/dev/setup: `package.json` ∪ `deno.json` com `tasks.dev`.

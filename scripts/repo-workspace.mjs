@@ -32,6 +32,7 @@ import {
   discoverGitRepos,
 } from "./lib/git.mjs";
 import { resolveRoot } from "./lib/root.mjs";
+import { runDevReselectLoop } from "./lib/dev-loop.mjs";
 import {
   runCommandsParallel,
   runYarnInstallSequential,
@@ -40,6 +41,22 @@ import { resolveSelection } from "./lib/select.mjs";
 import { resolveTestCommands } from "./lib/test.mjs";
 import { activateRepos, readScanRepositories } from "./lib/workspace.mjs";
 import path from "node:path";
+
+/**
+ * Loop pós-Ctrl+C só faz sentido quando a seleção veio do multiselect.
+ * @param {{ all: boolean, cliRepos: string[] }} parsed
+ * @param {string} [skipPromptEnv]
+ */
+function isInteractiveSelection(
+  parsed,
+  skipPromptEnv = process.env.REPOS_SKIP_PROMPT,
+) {
+  return (
+    !parsed.all &&
+    parsed.cliRepos.length === 0 &&
+    skipPromptEnv !== "1"
+  );
+}
 
 /**
  * @param {object} parsed
@@ -124,7 +141,7 @@ async function runDevParallel(selected, config, root) {
     }
   }
 
-  await runCommandsParallel(commands, config, root);
+  return runCommandsParallel(commands, config, root);
 }
 
 async function runInstall(parsed, config, root) {
@@ -147,7 +164,16 @@ async function runParallelScript(parsed, config, scriptName, root) {
   );
   if (selected === null) return;
 
-  await runDevParallel(selected, config, root);
+  const discovered = discoverWorkspaceRepos(config, root);
+  console.error("\n→ Iniciando dev nos selecionados com script/task dev…");
+  await runDevReselectLoop({
+    initialSelected: selected,
+    discovered,
+    interactiveLoop: isInteractiveSelection(parsed),
+    config,
+    root,
+    runParallel: runDevParallel,
+  });
 }
 
 async function runTests(parsed, config, root) {
@@ -204,8 +230,16 @@ async function runSetup(parsed, config, root) {
 
   installSelected(selected, config, root);
 
+  const discovered = discoverWorkspaceRepos(config, root);
   console.error("\n→ Iniciando dev nos selecionados com script/task dev…");
-  await runDevParallel(selected, config, root);
+  await runDevReselectLoop({
+    initialSelected: selected,
+    discovered,
+    interactiveLoop: isInteractiveSelection(parsed),
+    config,
+    root,
+    runParallel: runDevParallel,
+  });
 }
 
 async function runOpen(parsed, config, root) {
