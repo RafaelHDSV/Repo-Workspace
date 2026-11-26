@@ -44,21 +44,66 @@ export function loadConfig(root = DEFAULT_ROOT, configPath = null) {
 }
 
 /**
- * Pastas irmãs com package.json na raiz da subpasta.
  * @param {{ ignore: string[] }} config
  * @param {string} [root]
  * @returns {string[]}
  */
-export function discoverPackageRepos(config, root = DEFAULT_ROOT) {
+function listSiblingDirs(config, root = DEFAULT_ROOT) {
   const ignore = new Set(config.ignore);
   if (!fs.existsSync(root)) return [];
 
   return fs
     .readdirSync(root, { withFileTypes: true })
     .filter((d) => d.isDirectory() && !ignore.has(d.name))
-    .map((d) => d.name)
+    .map((d) => d.name);
+}
+
+/**
+ * Pastas irmãs com package.json na raiz da subpasta.
+ * @param {{ ignore: string[] }} config
+ * @param {string} [root]
+ * @returns {string[]}
+ */
+export function discoverPackageRepos(config, root = DEFAULT_ROOT) {
+  return listSiblingDirs(config, root)
     .filter((name) => fs.existsSync(path.join(root, name, "package.json")))
     .sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Pastas sem package.json com deno.json.tasks.dev (string não vazia).
+ * @param {{ ignore: string[] }} config
+ * @param {string} [root]
+ * @returns {string[]}
+ */
+export function discoverDenoDevRepos(config, root = DEFAULT_ROOT) {
+  return listSiblingDirs(config, root)
+    .filter((name) => {
+      if (fs.existsSync(path.join(root, name, "package.json"))) return false;
+      const denoPath = path.join(root, name, "deno.json");
+      try {
+        const deno = JSON.parse(fs.readFileSync(denoPath, "utf8"));
+        const task = deno?.tasks?.dev;
+        return typeof task === "string" && task.trim().length > 0;
+      } catch {
+        return false;
+      }
+    })
+    .sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * União package + deno-dev para install / dev / setup.
+ * @param {{ ignore: string[] }} config
+ * @param {string} [root]
+ * @returns {string[]}
+ */
+export function discoverWorkspaceRepos(config, root = DEFAULT_ROOT) {
+  const names = new Set([
+    ...discoverPackageRepos(config, root),
+    ...discoverDenoDevRepos(config, root),
+  ]);
+  return [...names].sort((a, b) => a.localeCompare(b));
 }
 
 /**
