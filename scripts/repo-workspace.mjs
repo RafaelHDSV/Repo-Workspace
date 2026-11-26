@@ -18,9 +18,14 @@
 import { parseArgs, printHelp } from "./lib/args.mjs";
 import {
   discoverPackageRepos,
-  filterWithScript,
+  discoverWorkspaceRepos,
   loadConfig,
 } from "./lib/config.mjs";
+import {
+  ensureDenoAvailable,
+  reposNeedingYarnInstall,
+  resolveDevCommands,
+} from "./lib/dev.mjs";
 import {
   checkoutRepos,
   currentBranchName,
@@ -30,7 +35,6 @@ import { resolveRoot } from "./lib/root.mjs";
 import {
   runCommandsParallel,
   runYarnInstallSequential,
-  runYarnParallel,
 } from "./lib/run.mjs";
 import { resolveSelection } from "./lib/select.mjs";
 import { resolveTestCommands } from "./lib/test.mjs";
@@ -43,8 +47,8 @@ import path from "node:path";
  * @param {string} modeLabel
  * @param {string} root
  */
-async function selectPackageRepos(parsed, config, modeLabel, root) {
-  const discovered = discoverPackageRepos(config, root);
+async function selectWorkspaceRepos(parsed, config, modeLabel, root) {
+  const discovered = discoverWorkspaceRepos(config, root);
 
   if (discovered.length === 0) {
     if (parsed.cliRepos.length > 0) {
@@ -56,14 +60,14 @@ async function selectPackageRepos(parsed, config, modeLabel, root) {
     }
     if (parsed.mode === "install") {
       console.error(
-        "[repos] Nenhuma subpasta irmã com package.json. " +
+        "[repos] Nenhuma subpasta irmã com package.json ou deno.json (tasks.dev). " +
           "Só as dependências desta raiz foram instaladas. " +
           "Quando tiver os outros repositórios, coloque este projeto na mesma pasta pai que eles.",
       );
       return null;
     }
     console.error(
-      "Nenhum repositório encontrado (pastas com package.json na raiz).",
+      "Nenhum repositório encontrado (pastas com package.json ou deno.json com tasks.dev).",
     );
     process.exit(1);
   }
@@ -78,14 +82,64 @@ async function selectPackageRepos(parsed, config, modeLabel, root) {
   });
 }
 
+/**
+ * @param {string[]} selected
+ * @param {object} config
+ * @param {string} root
+ */
+function installSelected(selected, config, root) {
+  const yarnRepos = reposNeedingYarnInstall(selected, root);
+  const denoSkipped = selected.filter((repo) => !yarnRepos.includes(repo));
+  runYarnInstallSequential(selected, config, root, {
+    yarnRepos,
+    denoSkipped,
+  });
+}
+
+/**
+ * @param {string[]} selected
+ * @param {object} config
+ * @param {string} root
+ */
+async function runDevParallel(selected, config, root) {
+  const { commands, skipped } = resolveDevCommands(selected, root);
+  if (skipped.length) {
+    console.error(
+      `Sem script/task dev (ignorados): ${skipped.join(", ")}`,
+    );
+  }
+  if (commands.length === 0) {
+    console.error("Nenhum repo selecionado tem script yarn dev ou deno task dev.");
+    process.exit(1);
+  }
+
+  const needsDeno = commands.some((c) => c.command.startsWith("deno "));
+  if (needsDeno) {
+    try {
+      ensureDenoAvailable();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(message);
+      process.exit(1);
+    }
+  }
+
+  await runCommandsParallel(commands, config, root);
+}
+
 async function runInstall(parsed, config, root) {
-  const selected = await selectPackageRepos(parsed, config, "install", root);
+  const selected = await selectWorkspaceRepos(parsed, config, "install", root);
   if (selected === null) return;
-  runYarnInstallSequential(selected, config, root);
+  installSelected(selected, config, root);
 }
 
 async function runParallelScript(parsed, config, scriptName, root) {
-  const selected = await selectPackageRepos(
+  if (scriptName !== "dev") {
+    console.error(`Script paralelo não suportado: ${scriptName}`);
+    process.exit(1);
+  }
+
+  const selected = await selectWorkspaceRepos(
     parsed,
     config,
     scriptName,
@@ -93,20 +147,7 @@ async function runParallelScript(parsed, config, scriptName, root) {
   );
   if (selected === null) return;
 
-  const { withScript, skipped } = filterWithScript(
-    selected,
-    scriptName,
-    root,
-  );
-  if (skipped.length) {
-    console.error(`Sem script ${scriptName} (ignorados): ${skipped.join(", ")}`);
-  }
-  if (withScript.length === 0) {
-    console.error(`Nenhum repo selecionado tem script ${scriptName}.`);
-    process.exit(1);
-  }
-
-  await runYarnParallel(withScript, scriptName, config, root);
+  await runDevParallel(selected, config, root);
 }
 
 async function runTests(parsed, config, root) {
@@ -158,22 +199,13 @@ async function runTests(parsed, config, root) {
 }
 
 async function runSetup(parsed, config, root) {
-  const selected = await selectPackageRepos(parsed, config, "setup", root);
+  const selected = await selectWorkspaceRepos(parsed, config, "setup", root);
   if (selected === null) return;
 
-  runYarnInstallSequential(selected, config, root);
+  installSelected(selected, config, root);
 
-  const { withScript, skipped } = filterWithScript(selected, "dev", root);
-  if (skipped.length) {
-    console.error(`Sem script dev (ignorados): ${skipped.join(", ")}`);
-  }
-  if (withScript.length === 0) {
-    console.error("Nenhum repo selecionado tem script dev.");
-    process.exit(1);
-  }
-
-  console.error("\n→ Iniciando yarn dev nos selecionados com script dev…");
-  await runYarnParallel(withScript, "dev", config, root);
+  console.error("\n→ Iniciando dev nos selecionados com script/task dev…");
+  await runDevParallel(selected, config, root);
 }
 
 async function runOpen(parsed, config, root) {

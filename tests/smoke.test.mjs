@@ -97,7 +97,7 @@ describe("ativação no Source Control", () => {
       const r = run(["dev", "--all", "--root", tmp]);
 
       assert.notEqual(r.status, 0);
-      assert.match(r.stderr, /script dev/);
+      assert.match(r.stderr, /script\/task dev|script yarn dev/);
       assert.ok(
         !fs.existsSync(path.join(tmp, ".vscode", "settings.json")),
         "dev não deve tocar no Source Control",

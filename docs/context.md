@@ -22,23 +22,7 @@ Dependências declaradas em `package.json` (amostra): concurrently, prompts.
 
 ## Estado atual
 
-Resumo curto — detalhe em [especificacao](especificacao.md); histórico em [historico-de-mudancas](historico-de-mudancas.md) e [CHANGELOG](../CHANGELOG.md).
-
-# Especificação
-
-> **Para que serve:** o que o hub multi-repo faz.
-> **Fonte da verdade:** `scripts/repo-workspace.mjs`.
-> **Relacionados:** [context](context.md)
-
-## Comandos
-
-| Comando | Papel |
-|---|---|
-| install / yarn | Instala deps nas subpastas elegíveis |
-| dev | Sobe dev nos selecionados |
-| test | Roda testes |
-| setup | install + dev |
-| switch | Troca branch nos clones com `.git` |
+Hub Yarn orquestra clones irmãos; `install`/`dev`/`setup` também descobrem repos Deno elegíveis (`deno.json` + `tasks.dev`). Detalhe em [especificacao](especificacao.md); histórico em [historico-de-mudancas](historico-de-mudancas.md) e [CHANGELOG](../CHANGELOG.md).
 
 ## Índice
 
