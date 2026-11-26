@@ -13,6 +13,12 @@ Use `CHANGELOG.md` na raiz para releases Keep a Changelog. Este arquivo guarda o
 - Loop interativo: confirm + multiselect com última seleção confirmada pré-marcada.
 - Escopo só `dev` e fase `dev` do `setup`; sem persistência em disco; setup não reinstala no reselect.
 
+### Deno no setup/dev (Repo-Workspace#3)
+
+- Descoberta unificada para install/dev/setup: `package.json` ∪ `deno.json` com `tasks.dev`.
+- Install pula yarn em só-Deno; fase paralela usa `deno task dev` quando elegível.
+- `yarn test` permanece só Yarn.
+
 ## 2026-11-03
 
 ### Living docs (board#7)

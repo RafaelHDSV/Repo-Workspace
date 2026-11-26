@@ -19,6 +19,7 @@ Manter `api/`, `web/` e `worker/` lado a lado vira repetição: `cd`, `yarn`, `y
 |---|---|
 | **Um lugar** | `yarn`, `yarn dev`, `yarn test`, `yarn setup`, `yarn switch` |
 | **Menu ou CLI** | Seleção interativa ou nomes na linha de comando |
+| **Yarn e Deno** | Node com `package.json` e repos Deno com `deno.json` + `tasks.dev` (ex.: `nexus`) no mesmo menu de setup/dev |
 | **Source Control** | `yarn open` alinha o painel do editor aos repos ativos |
 | **Node por repo** | Versão fixável em `repos.config.json` |
 
@@ -27,12 +28,12 @@ Manter `api/`, `web/` e `worker/` lado a lado vira repetição: `cd`, `yarn`, `y
 ```text
 Hub (package.json + scripts + repos.config.json)
         ↓
-subpastas irmãs com package.json / .git
+subpastas irmãs com package.json / deno.json / .git
         ↓
 install | dev | test | setup | switch | open
 ```
 
-Raiz operacional = pasta do hub ou `--root` / `REPOS_ROOT`. Em `yarn dev` (ou na fase `dev` do `yarn setup`), Ctrl+C pergunta se você quer reescolher os repositórios com a última seleção já marcada — sem remarcar tudo do zero. Guia completo (menus, Source Control, testes agregados): [`docs/ambiente-e-operacao.md`](docs/ambiente-e-operacao.md).
+Raiz operacional = pasta do hub ou `--root` / `REPOS_ROOT`. Em `yarn dev` (ou na fase `dev` do `yarn setup`), Ctrl+C pergunta se você quer reescolher os repositórios com a última seleção já marcada — sem remarcar tudo do zero. Guia completo (menus, Deno no PATH, Source Control, testes agregados): [`docs/ambiente-e-operacao.md`](docs/ambiente-e-operacao.md).
 
 ## Posicionamento
 

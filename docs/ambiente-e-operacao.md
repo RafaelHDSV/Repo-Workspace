@@ -34,8 +34,8 @@ A raiz operacional **padrão** é o diretório onde estes arquivos estão. Dá p
 
 1. **A raiz do hub** é o diretório em que estão `package.json` (deste projeto), `repos.config.json` e `scripts/repo-workspace.mjs` — ou o path passado em `--root` / `REPOS_ROOT`.
 2. Cada outro projeto é uma **subpasta direta** dessa raiz operacional (irmã de `scripts/` no layout clássico).
-3. Para `install` / `dev` / `test` / `setup`, só entram pastas que **tenham `package.json` na própria raiz** da subpasta.
-4. Para `switch`, entram pastas que **tenham `.git`**.
+3. Para `install` / `dev` / `setup`, entram pastas com **`package.json`** na raiz **ou** só-Deno com **`deno.json`** e task **`dev`** definida. Para `test`, só pastas com `package.json`.
+4. Para `switch` / `open`, entram pastas que **tenham `.git`**.
 
 Se você clonou este repositório só como **modelo**, copie esses arquivos para a pasta onde já estão os outros clones (por exemplo `C:\Users\...\meus-repos\` ou `~/repos/`), mantendo a mesma hierarquia.
 
@@ -101,9 +101,10 @@ REPOS_ROOT=/caminho/dos/clones yarn setup
 ### Comportamento dos menus
 
 - O multiselect abre com **nada** selecionado (exceto em `yarn open`, que pré-marca os repositórios ativos) — marque com Espaço; Enter confirma.
-- **`yarn dev`** e **`yarn setup`** (etapa de dev): repositórios **sem** script `dev` são ignorados, com aviso.
-- **`yarn test`**: mostra somente repositórios com suíte detectada e o comando não interativo que será executado.
-- **`yarn setup`**: seleciona **uma vez**, roda `yarn` sequencialmente em todos os selecionados e, só após sucesso, inicia `yarn dev` em paralelo nos que tiverem script `dev`.
+- **`yarn dev`** e **`yarn setup`** (etapa de dev): sobem `yarn dev` ou `deno task dev`; repositórios **sem** script/task `dev` são ignorados, com aviso. Se a seleção incluir Deno e `deno` não estiver no PATH, o comando falha antes do paralelo.
+- **`yarn install`** / fase sequencial do setup: repos só-Deno **não** rodam `yarn` — aviso `→ <repo>: (Deno) pulando yarn install`. Seleção só-Deno conclui com exit 0.
+- **`yarn test`**: mostra somente repositórios com suíte detectada e o comando não interativo que será executado (não lista só-Deno).
+- **`yarn setup`**: seleciona **uma vez**, roda `yarn` só nos repos Yarn e, só após sucesso, inicia o dev em paralelo nos elegíveis.
 - **`yarn switch`**: o menu mostra a branch atual de cada clone ao lado do nome.
 
 ### Ctrl+C durante `yarn dev` (ou fase `dev` do `setup`)
@@ -185,7 +186,8 @@ JSON estrito (sem comentários `//`).
 ## Requisitos
 
 - [Node.js](https://nodejs.org/) 18 ou superior
-- [Yarn Classic](https://classic.yarnpkg.com/) (v1) nos repositórios filhos
+- [Yarn Classic](https://classic.yarnpkg.com/) (v1) nos repositórios filhos Yarn
+- [Deno](https://deno.com/) no PATH se for subir repositórios Deno (ex.: `nexus`) via `yarn dev` / `yarn setup`
 - Opcional: [NVM for Windows](https://github.com/coreybutler/nvm-windows) se usar `nodeVersionByRepo`
 
 ---
@@ -236,7 +238,7 @@ yarn test:self
 | Testar vários repositórios | `yarn test` |
 | Trocar branch em vários clones | `yarn switch main` |
 | Automatizar / CI | `--all`, nomes após `--` ou `REPOS_SKIP_PROMPT=1` |
-| Pasta não aparece no menu | Confira `package.json` / `.git` e o campo `ignore` |
+| Pasta não aparece no menu | Confira `package.json`, `deno.json`+`tasks.dev`, `.git` e o campo `ignore` |
 | Node incorreto em um repositório | Defina `nodeVersionByRepo` e use NVM com a versão instalada |
 
 ## Apoie

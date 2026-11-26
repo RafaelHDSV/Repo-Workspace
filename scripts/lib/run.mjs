@@ -41,10 +41,28 @@ export function runYarnInstall(repo, config, root = ROOT, options = {}) {
  * @param {string[]} repos
  * @param {{ nodeVersionByRepo: Record<string, string> }} config
  * @param {string} [root]
+ * @param {{ yarnRepos?: string[], denoSkipped?: string[] }} [partition]
  */
-export function runYarnInstallSequential(repos, config, root = ROOT) {
-  for (const repo of repos) {
+export function runYarnInstallSequential(
+  repos,
+  config,
+  root = ROOT,
+  partition = {},
+) {
+  const yarnRepos = partition.yarnRepos ?? repos;
+  const denoSkipped = partition.denoSkipped ?? [];
+
+  for (const repo of denoSkipped) {
+    console.error(`\n→ ${repo}: (Deno) pulando yarn install`);
+  }
+
+  for (const repo of yarnRepos) {
     runYarnInstall(repo, config, root, { exitOnFail: true });
+  }
+
+  if (yarnRepos.length === 0) {
+    console.error("\nConcluído: nenhum repo Yarn na seleção (só Deno, se houver).");
+    return;
   }
   console.error("\nConcluído: yarn em todos os selecionados.");
 }

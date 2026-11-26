@@ -22,7 +22,7 @@ Dependências declaradas em `package.json` (amostra): concurrently, prompts.
 
 ## Estado atual
 
-Hub multi-repo estável; issue #2 — após Ctrl+C em `dev`/`setup` (fase dev), reselect com seleção pré-marcada. Detalhe em [especificacao](especificacao.md); histórico em [historico-de-mudancas](historico-de-mudancas.md) e [CHANGELOG](../CHANGELOG.md).
+Hub Yarn orquestra clones irmãos (inclui Deno elegível); após Ctrl+C em `dev`/`setup` (fase dev), reselect com seleção pré-marcada (#2). Detalhe em [especificacao](especificacao.md); histórico em [historico-de-mudancas](historico-de-mudancas.md) e [CHANGELOG](../CHANGELOG.md).
 
 ## Índice
 
