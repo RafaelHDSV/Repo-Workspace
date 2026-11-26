@@ -53,14 +53,39 @@ export async function pickRepos(
 }
 
 /**
+ * Espera o Ctrl+C interruptivo “assentar” e recoloca o stdin em modo linha,
+ * para o mesmo sinal não cancelar o próximo `prompts`.
+ *
+ * @param {number} [ms]
+ * @returns {Promise<void>}
+ */
+export async function settleAfterInterrupt(ms = 150) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+  if (!process.stdin.isTTY) return;
+  process.stdin.resume();
+  try {
+    if (typeof process.stdin.setRawMode === "function") {
+      process.stdin.setRawMode(false);
+    }
+  } catch {
+    /* ignore — stdin pode não suportar raw mode */
+  }
+}
+
+/**
  * Pergunta se o usuário quer reescolher repos após Ctrl+C no dev paralelo.
  * Cancel / Ctrl+C no prompt → false (equivalente a Não).
  *
  * @param {string} message
  * @param {typeof prompts} [promptFn]
+ * @param {{ settleMs?: number, settleFn?: (ms: number) => Promise<void> }} [opts]
  * @returns {Promise<boolean>}
  */
-export async function confirmReselect(message, promptFn = prompts) {
+export async function confirmReselect(message, promptFn = prompts, opts = {}) {
+  const { settleMs = 0, settleFn = settleAfterInterrupt } = opts;
+  if (settleMs > 0) {
+    await settleFn(settleMs);
+  }
   const response = await promptFn({
     type: "confirm",
     name: "again",

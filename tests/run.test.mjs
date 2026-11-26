@@ -67,4 +67,15 @@ describe("wasInterruptedBySignal", () => {
     assert.equal(wasInterruptedBySignal(null), false);
     assert.equal(wasInterruptedBySignal(undefined), false);
   });
+
+  it("é true quando exitCode é nome de sinal (Windows / shell)", () => {
+    assert.equal(
+      wasInterruptedBySignal([{ killed: false, exitCode: "SIGINT" }]),
+      true,
+    );
+    assert.equal(
+      wasInterruptedBySignal([{ killed: false, exitCode: "SIGTERM" }]),
+      true,
+    );
+  });
 });

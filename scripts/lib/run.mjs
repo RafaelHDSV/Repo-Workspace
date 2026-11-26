@@ -100,14 +100,24 @@ export function buildParallelCommands(
   });
 }
 
+const SIGNAL_EXIT_CODES = new Set(["SIGINT", "SIGTERM", "SIGBREAK", "SIGHUP"]);
+
 /**
  * Detecta Ctrl+C / kill via close events do concurrently (SIGINT remapeia exit 0).
+ * Também cobre exitCode string de sinal e flag local — no Windows os filhos
+ * às vezes morrem pelo console sem `killed: true`.
  * @param {unknown} closeEvents
+ * @param {boolean} [signalSeen]
  * @returns {boolean}
  */
-export function wasInterruptedBySignal(closeEvents) {
+export function wasInterruptedBySignal(closeEvents, signalSeen = false) {
+  if (signalSeen) return true;
   if (!Array.isArray(closeEvents)) return false;
-  return closeEvents.some((event) => event && event.killed === true);
+  return closeEvents.some((event) => {
+    if (!event) return false;
+    if (event.killed === true) return true;
+    return SIGNAL_EXIT_CODES.has(event.exitCode);
+  });
 }
 
 /**
@@ -133,20 +143,40 @@ export async function runCommandsParallel(
 
   const prefixColors = entries.map((_, i) => COLORS[i % COLORS.length]);
 
-  const { result } = concurrently(commands, {
-    prefix: "name",
-    prefixColors,
-    restartTries: 0,
-  });
+  let signalSeen = false;
+  const onSignal = () => {
+    signalSeen = true;
+  };
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
+  if (process.platform === "win32") {
+    process.on("SIGBREAK", onSignal);
+  }
 
   try {
-    const events = await result;
-    return { interrupted: wasInterruptedBySignal(events) };
-  } catch (events) {
-    if (wasInterruptedBySignal(events)) {
-      return { interrupted: true };
+    const { result } = concurrently(commands, {
+      prefix: "name",
+      prefixColors,
+      restartTries: 0,
+    });
+
+    try {
+      const events = await result;
+      return {
+        interrupted: wasInterruptedBySignal(events, signalSeen),
+      };
+    } catch (events) {
+      if (wasInterruptedBySignal(events, signalSeen)) {
+        return { interrupted: true };
+      }
+      throw events;
     }
-    throw events;
+  } finally {
+    process.off("SIGINT", onSignal);
+    process.off("SIGTERM", onSignal);
+    if (process.platform === "win32") {
+      process.off("SIGBREAK", onSignal);
+    }
   }
 }
 
