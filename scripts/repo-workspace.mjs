@@ -16,26 +16,38 @@
  * sub-repos em TTY, com --all, com nomes após -- ou com REPOS_SKIP_PROMPT=1.
  */
 import { parseArgs, printHelp } from "./lib/args.mjs";
-import {
-  discoverPackageRepos,
-  filterWithScript,
-  loadConfig,
-} from "./lib/config.mjs";
+import { discoverPackageRepos, loadConfig } from "./lib/config.mjs";
 import {
   checkoutRepos,
   currentBranchName,
   discoverGitRepos,
 } from "./lib/git.mjs";
 import { resolveRoot } from "./lib/root.mjs";
+import { runDevReselectLoop } from "./lib/dev-loop.mjs";
 import {
   runCommandsParallel,
   runYarnInstallSequential,
-  runYarnParallel,
 } from "./lib/run.mjs";
 import { resolveSelection } from "./lib/select.mjs";
 import { resolveTestCommands } from "./lib/test.mjs";
 import { activateRepos, readScanRepositories } from "./lib/workspace.mjs";
 import path from "node:path";
+
+/**
+ * Loop pós-Ctrl+C só faz sentido quando a seleção veio do multiselect.
+ * @param {{ all: boolean, cliRepos: string[] }} parsed
+ * @param {string} [skipPromptEnv]
+ */
+function isInteractiveSelection(
+  parsed,
+  skipPromptEnv = process.env.REPOS_SKIP_PROMPT,
+) {
+  return (
+    !parsed.all &&
+    parsed.cliRepos.length === 0 &&
+    skipPromptEnv !== "1"
+  );
+}
 
 /**
  * @param {object} parsed
@@ -93,20 +105,17 @@ async function runParallelScript(parsed, config, scriptName, root) {
   );
   if (selected === null) return;
 
-  const { withScript, skipped } = filterWithScript(
-    selected,
-    scriptName,
-    root,
+  const discovered = discoverPackageRepos(config, root);
+  console.error(
+    `\n→ Iniciando yarn ${scriptName} nos selecionados com script ${scriptName}…`,
   );
-  if (skipped.length) {
-    console.error(`Sem script ${scriptName} (ignorados): ${skipped.join(", ")}`);
-  }
-  if (withScript.length === 0) {
-    console.error(`Nenhum repo selecionado tem script ${scriptName}.`);
-    process.exit(1);
-  }
-
-  await runYarnParallel(withScript, scriptName, config, root);
+  await runDevReselectLoop({
+    initialSelected: selected,
+    discovered,
+    interactiveLoop: isInteractiveSelection(parsed),
+    config,
+    root,
+  });
 }
 
 async function runTests(parsed, config, root) {
@@ -163,17 +172,15 @@ async function runSetup(parsed, config, root) {
 
   runYarnInstallSequential(selected, config, root);
 
-  const { withScript, skipped } = filterWithScript(selected, "dev", root);
-  if (skipped.length) {
-    console.error(`Sem script dev (ignorados): ${skipped.join(", ")}`);
-  }
-  if (withScript.length === 0) {
-    console.error("Nenhum repo selecionado tem script dev.");
-    process.exit(1);
-  }
-
+  const discovered = discoverPackageRepos(config, root);
   console.error("\n→ Iniciando yarn dev nos selecionados com script dev…");
-  await runYarnParallel(withScript, "dev", config, root);
+  await runDevReselectLoop({
+    initialSelected: selected,
+    discovered,
+    interactiveLoop: isInteractiveSelection(parsed),
+    config,
+    root,
+  });
 }
 
 async function runOpen(parsed, config, root) {

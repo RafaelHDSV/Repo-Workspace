@@ -1,7 +1,7 @@
 ﻿# Ambiente e operação
 
 > **Para que serve:** layout do hub, comandos Yarn e Source Control.
-> **Fonte da verdade:** scripts/repo-workspace.mjs, epos.config.json, package.json.
+> **Fonte da verdade:** scripts/repo-workspace.mjs, repos.config.json, package.json.
 > **Relacionados:** [context](context.md) · [especificacao](especificacao.md)
 
 O texto abaixo é o guia operacional completo (antes no README).
@@ -105,6 +105,15 @@ REPOS_ROOT=/caminho/dos/clones yarn setup
 - **`yarn test`**: mostra somente repositórios com suíte detectada e o comando não interativo que será executado.
 - **`yarn setup`**: seleciona **uma vez**, roda `yarn` sequencialmente em todos os selecionados e, só após sucesso, inicia `yarn dev` em paralelo nos que tiverem script `dev`.
 - **`yarn switch`**: o menu mostra a branch atual de cada clone ao lado do nome.
+
+### Ctrl+C durante `yarn dev` (ou fase `dev` do `setup`)
+
+Quando a seleção foi pelo menu (não `--all` / `REPOS_SKIP_PROMPT` / nomes na CLI), o primeiro Ctrl+C enquanto os servidores `dev` rodam em paralelo **não** encerra a sessão de imediato: o CLI pergunta se você quer escolher repositórios de novo com a **mesma seleção marcada**.
+
+- **Sim** → reabre o multiselect com a última confirmação pré-marcada; dá para incluir ou tirar um repo e subir só o `dev` de novo.
+- **Não** (ou Ctrl+C nesse confirm) → sai com código 0.
+- No **`yarn setup`**, se o `yarn` sequencial já tinha terminado, o reselect **não** reinstala dependências — só a fase `dev`.
+- A pré-marcação vale **só nesta sessão**; a próxima `yarn dev` / `yarn setup` "fria" abre o menu sem marcar nada.
 
 ### Como `yarn test` resolve cada suíte
 

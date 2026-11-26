@@ -1,6 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { buildChoices, pickRepos } from "../scripts/lib/select.mjs";
+import {
+  buildChoices,
+  confirmReselect,
+  pickRepos,
+} from "../scripts/lib/select.mjs";
 
 describe("buildChoices", () => {
   it("sem pré-marcação, nada vem selecionado", () => {
@@ -67,5 +71,34 @@ describe("pickRepos: o que chega no prompts", () => {
     const config = get();
     assert.equal(config.min, 1);
     assert.deepEqual(config.choices.map((c) => c.selected), [false, false]);
+  });
+});
+
+describe("confirmReselect", () => {
+  it("retorna true quando o usuário confirma", async () => {
+    const fake = async () => ({ again: true });
+    assert.equal(await confirmReselect("msg", fake), true);
+  });
+
+  it("retorna false quando o usuário recusa", async () => {
+    const fake = async () => ({ again: false });
+    assert.equal(await confirmReselect("msg", fake), false);
+  });
+
+  it("retorna false quando o prompt é cancelado (Ctrl+C)", async () => {
+    const fake = async () => ({});
+    assert.equal(await confirmReselect("msg", fake), false);
+  });
+
+  it("envia type confirm e a mensagem pedida", async () => {
+    let recebido = null;
+    const fake = async (config) => {
+      recebido = config;
+      return { again: true };
+    };
+    await confirmReselect("Parou os servidores?", fake);
+    assert.equal(recebido.type, "confirm");
+    assert.equal(recebido.name, "again");
+    assert.equal(recebido.message, "Parou os servidores?");
   });
 });

@@ -53,6 +53,27 @@ export async function pickRepos(
 }
 
 /**
+ * Pergunta se o usuário quer reescolher repos após Ctrl+C no dev paralelo.
+ * Cancel / Ctrl+C no prompt → false (equivalente a Não).
+ *
+ * @param {string} message
+ * @param {typeof prompts} [promptFn]
+ * @returns {Promise<boolean>}
+ */
+export async function confirmReselect(message, promptFn = prompts) {
+  const response = await promptFn({
+    type: "confirm",
+    name: "again",
+    message,
+    initial: true,
+  });
+  if (response.again === undefined) {
+    return false;
+  }
+  return Boolean(response.again);
+}
+
+/**
  * Resolve seleção: CLI explícita, --all / REPOS_SKIP_PROMPT, ou multiselect.
  * @param {{
  *   discovered: string[],

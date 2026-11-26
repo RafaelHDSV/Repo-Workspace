@@ -9,4 +9,5 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ### Adicionado
 
+- Após Ctrl+C em `yarn dev` / fase `dev` do `yarn setup` (seleção interativa), pergunta se reescolhe repositórios com a última seleção pré-marcada; no setup não reinstala.
 - Living docs (hub `docs/context.md`), arquivos de comunidade e README no padrão board#7.

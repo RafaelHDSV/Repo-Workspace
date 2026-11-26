@@ -22,23 +22,7 @@ Dependências declaradas em `package.json` (amostra): concurrently, prompts.
 
 ## Estado atual
 
-Resumo curto — detalhe em [especificacao](especificacao.md); histórico em [historico-de-mudancas](historico-de-mudancas.md) e [CHANGELOG](../CHANGELOG.md).
-
-# Especificação
-
-> **Para que serve:** o que o hub multi-repo faz.
-> **Fonte da verdade:** `scripts/repo-workspace.mjs`.
-> **Relacionados:** [context](context.md)
-
-## Comandos
-
-| Comando | Papel |
-|---|---|
-| install / yarn | Instala deps nas subpastas elegíveis |
-| dev | Sobe dev nos selecionados |
-| test | Roda testes |
-| setup | install + dev |
-| switch | Troca branch nos clones com `.git` |
+Hub multi-repo estável; issue #2 — após Ctrl+C em `dev`/`setup` (fase dev), reselect com seleção pré-marcada. Detalhe em [especificacao](especificacao.md); histórico em [historico-de-mudancas](historico-de-mudancas.md) e [CHANGELOG](../CHANGELOG.md).
 
 ## Índice
 
