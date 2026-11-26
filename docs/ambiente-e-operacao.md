@@ -109,10 +109,10 @@ REPOS_ROOT=/caminho/dos/clones yarn setup
 
 ### Ctrl+C durante `yarn dev` (ou fase `dev` do `setup`)
 
-Quando a seleção foi pelo menu (não `--all` / `REPOS_SKIP_PROMPT` / nomes na CLI), o primeiro Ctrl+C enquanto os servidores `dev` rodam em paralelo **não** encerra a sessão de imediato: o CLI pergunta se você quer escolher repositórios de novo com a **mesma seleção marcada**.
+Quando a seleção foi pelo menu (não `--all` / `REPOS_SKIP_PROMPT` / nomes na CLI), o primeiro Ctrl+C enquanto os servidores `dev` rodam em paralelo **não** encerra a sessão de imediato: o CLI pergunta se você quer escolher repositórios de novo com a **mesma seleção marcada** (há uma pausa curta para o mesmo Ctrl+C não cancelar o confirm).
 
 - **Sim** → reabre o multiselect com a última confirmação pré-marcada; dá para incluir ou tirar um repo e subir só o `dev` de novo.
-- **Não** (ou Ctrl+C nesse confirm) → sai com código 0.
+- **Não** (ou Ctrl+C nesse confirm) → imprime `Encerrado.` e sai com código 0.
 - No **`yarn setup`**, se o `yarn` sequencial já tinha terminado, o reselect **não** reinstala dependências — só a fase `dev`.
 - A pré-marcação vale **só nesta sessão**; a próxima `yarn dev` / `yarn setup` "fria" abre o menu sem marcar nada.
 
